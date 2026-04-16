@@ -1,0 +1,13 @@
+require('dotenv').config();
+
+const express = require('express');
+const router = express.Router();
+
+const sql = require("../config/supabaseClient")
+
+router.get('/', async (req, res) => {
+    const users = await sql`SELECT * from customer_contact`;
+    res.send(users);
+})
+
+module.exports = router;
