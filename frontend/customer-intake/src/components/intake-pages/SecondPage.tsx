@@ -2,6 +2,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+import { formTitleStyle, formDescriptionStyle, errorStyle, inputStyle, buttonStyle, formBoxStyle } from '../style';
 
 const schema = z.object({
     firstName: z.string().min(1, {message:"Enter a valid first name"}),
@@ -16,10 +17,16 @@ type SecondPageProps = {
     handleChange: (data : SecondPageFields) => void;
     handleNext: () => void;
     handleBack: () => void;
+    defaultValues: Partial<SecondPageFields>;
 }
 
 export const SecondPage = (props : SecondPageProps) => {
-    const { register, handleSubmit, formState : {errors} } = useForm<SecondPageFields>({ resolver : zodResolver(schema)});
+    const { register, handleSubmit, formState : {errors} } = useForm<SecondPageFields>({defaultValues : { 
+        firstName: props.defaultValues.firstName, 
+        lastName: props.defaultValues.lastName, 
+        email: props.defaultValues.email, 
+        phoneNumber: props.defaultValues.phoneNumber
+    }, resolver : zodResolver(schema), });
 
     const onSubmit: SubmitHandler<SecondPageFields> = (data) => {
         props.handleChange(data)
@@ -27,26 +34,40 @@ export const SecondPage = (props : SecondPageProps) => {
     }
 
     return (
-        <div className="flex h-screen items-center justify-center">
-            <form onSubmit={handleSubmit(onSubmit)}>
-                <label htmlFor='first-name'>First Name:</label>
-                <input type='text' {...register("firstName")}></input>
-                { errors.firstName && <div>{errors.firstName.message}</div> }
-                <br/>
-                <label htmlFor='last-name'>Last Name:</label>
-                <input type='text' {...register("lastName")}></input>
-                { errors.lastName && <div>{errors.lastName.message}</div> }
-                <br/>
-                <label htmlFor='email'>Email:</label>
-                <input type='text' {...register("email")}></input>
-                { errors.email && <div>{errors.email.message}</div> }
-                <br/>
-                <label htmlFor='phone-number'>Phone Number:</label>
-                <input type='tel' {...register("phoneNumber")}></input>
-                { errors.phoneNumber && <div>{errors.phoneNumber.message}</div> }
-                <br/>
-                <button onClick={props.handleBack}>Last Page</button> <br/>
-                <input type="submit" value="Next Page"></input>
+        <div className={formBoxStyle}>
+            <div className='flex flex-col gap-1'>
+                <h1 className={formTitleStyle}>Schedule Car Detailing</h1>
+                <h2 className={formDescriptionStyle}>Please fill out the contact information</h2>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-5 px-3 '>
+                <div className='grid grid-rows-2 gap-4'>
+                    <div className='flex flex-col gap-y-1'>
+                        <label htmlFor='first-name'>First Name:</label>
+                        <input type='text' className={inputStyle} {...register("firstName")}></input>
+                        { errors.firstName && <div className={errorStyle}>{errors.firstName.message}</div> }
+                    </div>
+                    <div className='flex flex-col gap-y-1'>
+                        <label htmlFor='last-name'>Last Name:</label>
+                        <input type='text' className={inputStyle} {...register("lastName")}></input>
+                        { errors.lastName && <div className={errorStyle}>{errors.lastName.message}</div> }
+                    </div>
+                </div>
+                <div className='grid grid-cols-2 gap-4'>
+                    <div className='flex flex-col gap-y-1'>
+                        <label htmlFor='email'>Email:</label>
+                        <input type='text' className={inputStyle} {...register("email")}></input>
+                        { errors.email && <div className={errorStyle}>{errors.email.message}</div> }
+                    </div>
+                    <div className='flex flex-col gap-y-1'>
+                        <label htmlFor='phone-number'>Phone Number:</label>
+                        <input type='tel' className={inputStyle} {...register("phoneNumber")}></input>
+                        { errors.phoneNumber && <div className={errorStyle}>{errors.phoneNumber.message}</div> }
+                    </div>
+                </div>
+                <div className='grid grid-cols-2 gap-4 pt-4'>
+                    <button type='button' onClick={props.handleBack} className={buttonStyle}>Last Page</button>
+                    <input type="submit" value="Next Page" className={buttonStyle}></input>
+                </div>
             </form>
         </div>
     );

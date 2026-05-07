@@ -5,8 +5,8 @@ import { ThirdPage } from "./intake-pages/ThirdPage";
 import { FourthPage } from "./intake-pages/FourthPage";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(1);
-
+    const [currentPage, setCurrentPage] = useState(0);
+    
     type FormInformation = {
         location: string;
         arriveTime: string;
@@ -45,7 +45,6 @@ export const Survey = () => {
     } )
     
     const handleChange = (data: Partial<FormInformation>) => {
-
         formInformation.current = {
             ...formInformation.current,
             ...data,
@@ -55,12 +54,12 @@ export const Survey = () => {
     }
 
     const handleBack = () => {
-        if(currentPage > 1)
+        if(currentPage > 0)
             setCurrentPage(currentPage-1);
     }
 
     const handleNext = () => {
-        if(currentPage < 4)
+        if(currentPage < 3)
             setCurrentPage(currentPage+1);
     }
 
@@ -68,12 +67,39 @@ export const Survey = () => {
         console.log(formInformation);
     }
 
+    const pages = [
+    <FirstPage 
+    handleChange={handleChange} handleNext={handleNext} 
+    defaultValues={{ 
+        location: formInformation.current.location, 
+        arriveTime: formInformation.current.arriveTime, 
+        leaveTime: formInformation.current.leaveTime 
+    }}/>,
+    <SecondPage handleChange={handleChange} handleBack={handleBack} handleNext={handleNext} 
+    defaultValues={{ 
+        firstName: formInformation.current.firstName,
+        lastName: formInformation.current.lastName, 
+        email: formInformation.current.email, 
+        phoneNumber: formInformation.current.phoneNumber 
+    }}/>,
+    <ThirdPage handleChange={handleChange} handleBack={handleBack} handleNext={handleNext}
+    defaultValues={{
+        carType: formInformation.current.carType,
+        carMake: formInformation.current.carMake,
+        carModel: formInformation.current.carModel,
+        carYear: formInformation.current.carYear,
+        licensePlateNumber: formInformation.current.licensePlateNumber,
+    }}/>,
+    <FourthPage handleChange={handleChange} handleBack={handleBack} fullSubmit={handleSubmit}
+    defaultValues={{
+        service: formInformation.current.service,
+        addons: formInformation.current.addons,
+    }}/>
+    ];
+
     return (
         <div>
-            {currentPage===1&&<FirstPage handleChange={handleChange} handleNext={handleNext}/>}
-            {currentPage===2&&<SecondPage handleChange={handleChange} handleBack={handleBack} handleNext={handleNext}></SecondPage>}
-            {currentPage===3&&<ThirdPage handleChange={handleChange} handleBack={handleBack} handleNext={handleNext}></ThirdPage>}
-            {currentPage===4&&<FourthPage handleChange={handleChange} handleBack={handleBack} fullSubmit={handleSubmit}></FourthPage>}
+            {pages[currentPage]}
         </div>
     );
 };
