@@ -21,10 +21,17 @@ const schema = z.object({
 
 type FirstPageFields = z.infer<typeof schema>
 
+type SurveyOptions = {
+    locations: string[],
+    services: string[],
+    addons: string[],
+}
+
 type FirstPageProps = {
     handleChange: (data: FirstPageFields) => void;
     handleNext: () => void;
     defaultValues: Partial<FirstPageFields>;
+    surveyOptions: SurveyOptions;
 }
 
 export const FirstPage = (props : FirstPageProps) => {
@@ -34,17 +41,21 @@ export const FirstPage = (props : FirstPageProps) => {
             leaveTime:props.defaultValues.leaveTime 
         }, resolver: zodResolver(schema)});
 
-    useEffect(() => {
-        fetchLocations();
-    }, [])
+    
 
-    const [locations, setLocations] = useState([]);
+   
+   /*
+   useEffect(() => {
+        fetchLocations();
+    }, []) 
+   
+   const [locations, setLocations] = useState([]);
 
     const fetchLocations = async () => {
         const res = await fetch("http://localhost:3000/customer/locations");
         const data = await res.json();
         setLocations(data);
-    }
+    }*/
 
     const onSubmit: SubmitHandler<FirstPageFields> = (data) => {
         props.handleChange(data);
@@ -62,8 +73,8 @@ export const FirstPage = (props : FirstPageProps) => {
                     <label htmlFor="location">Location: </label>
                     <select id="location" className={inputStyle}  {...register("location")}>
                         <option value="" disabled>SELECT ONE</option>
-                        {locations.map((val : any) => {
-                            return <option key={val.location_name} value={val.location_name}>{val.location_name}</option>
+                        {props.surveyOptions.locations.map((val : any) => {
+                            return <option key={val} value={val}>{val}</option>
                         })}
                         <option value="testing">testing</option>
                     </select>
