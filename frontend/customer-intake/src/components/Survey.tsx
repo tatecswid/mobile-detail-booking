@@ -66,19 +66,13 @@ export const Survey = () => {
             try {
                 setIsLoading(true);
                 const optionReponse = await axios.get("http://localhost:3000/survey/options");
-
                 surveyOptions.current = optionReponse.data;
-
-               console.log(optionReponse.data);
             } catch(error) {
                 setError(true);
             } finally {
                 setIsLoading(false);
             }
-            
-            //console.log(surveyOptions.current);
         }
-
         fetchOptions();        
     }, [])
     
