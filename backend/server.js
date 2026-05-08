@@ -10,8 +10,12 @@ const app = express();
 app.use(cors());
 
 //app.use('/admin', adminRoutes);
-app.use('/customer', customerRoutes);
+app.use('/survey', customerRoutes);
 
 app.listen(3000, () => {
     console.log("Server running on port 3000");
 }) 
+
+app.get("/", (req, res) => {
+    res.send("hello world");
+})

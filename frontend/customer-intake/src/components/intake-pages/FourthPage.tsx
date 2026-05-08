@@ -1,7 +1,7 @@
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { formTitleStyle, formDescriptionStyle, errorStyle, inputStyle, buttonStyle, formBoxStyle, optionStyle } from '../style';
+import { formTitleStyle, formDescriptionStyle, errorStyle, buttonStyle, formBoxStyle, optionStyle } from '../style';
 
 const schema = z.object({
     service: z.string({message: "Select a valid service"}).min(1, {message: "Select a valid service"}),
@@ -10,11 +10,18 @@ const schema = z.object({
 
 type FourthPageFields = z.infer<typeof schema>
 
+type SurveyOptions = {
+    locations: string[],
+    services: string[],
+    addons: string[],
+}
+
 type FourthFormProps = {
     handleChange: (data: FourthPageFields) => void;
     fullSubmit: () => void;
     handleBack: () => void;
     defaultValues: Partial<FourthPageFields>;
+    surveyOptions: SurveyOptions;
 }
 
 export const FourthPage = (props : FourthFormProps) => {
@@ -38,19 +45,18 @@ export const FourthPage = (props : FourthFormProps) => {
                 <div className='flex flex-col gap-1'>
                     <legend>Select a service:</legend>
                     <div className='grid grid-cols-2 gap-4'>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='radio' value='interior' {...register("service")}/>Interior</label>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='radio' value='exterior' {...register("service")}/>Exterior</label>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='radio' value='full' {...register("service")}/>Full</label>
+                        { props.surveyOptions.services.map(serviceOption => {
+                            return <label className={`${optionStyle} flex items-center gap-2`}><input type='radio' value={serviceOption} {...register("service")}/>{serviceOption}</label>
+                        })}
                     </div>
                     { errors.service && <div className={errorStyle}>{errors.service.message}</div> }
                 </div>
                 <div className='flex flex-col gap-1'>
                     <legend>Select addons:</legend>
                     <div className='grid grid-cols-2 gap-4'>
-                        <label className={`${optionStyle} flex items-center gap-2 py-1`}><input type='checkbox' {...register("addons")} value="minor pet hair removal"/>Minor Pet Hair Removal</label>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='checkbox' {...register("addons")} value="extreme pet hair removal"/>Extreme Pet Hair Removal</label>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='checkbox' {...register("addons")} value="weather & polin protection"/>Weather & Polin Protection</label>
-                        <label className={`${optionStyle} flex items-center gap-2`}><input type='checkbox' {...register("addons")} value="tire & trim deep clean"/>Trim & Tire Deep Clean</label>
+                        { props.surveyOptions.addons.map(addonOption => {
+                            return <label className={`${optionStyle} flex items-center gap-2 py-1`}><input type='checkbox' {...register("addons")} value={addonOption}/>{addonOption}</label>
+                        })}
                     </div>
                 </div>
                 <div className='grid grid-cols-2 gap-4 pt-4'>

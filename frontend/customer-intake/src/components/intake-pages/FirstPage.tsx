@@ -1,7 +1,6 @@
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
 import { formTitleStyle, formDescriptionStyle, errorStyle, inputStyle, buttonStyle, formBoxStyle } from '../style';
 
 const schema = z.object({
@@ -40,22 +39,6 @@ export const FirstPage = (props : FirstPageProps) => {
             arriveTime: props.defaultValues.arriveTime, 
             leaveTime:props.defaultValues.leaveTime 
         }, resolver: zodResolver(schema)});
-
-    
-
-   
-   /*
-   useEffect(() => {
-        fetchLocations();
-    }, []) 
-   
-   const [locations, setLocations] = useState([]);
-
-    const fetchLocations = async () => {
-        const res = await fetch("http://localhost:3000/customer/locations");
-        const data = await res.json();
-        setLocations(data);
-    }*/
 
     const onSubmit: SubmitHandler<FirstPageFields> = (data) => {
         props.handleChange(data);
