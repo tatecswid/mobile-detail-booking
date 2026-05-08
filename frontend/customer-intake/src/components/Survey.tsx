@@ -5,10 +5,12 @@ import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
 import { FourthPage } from "./intake-pages/FourthPage";
 import { LoadingPage } from "./intermediate-pages/LoadingPage";
+import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+    const [hasError, setError] = useState(false);
     
     type FormInformation = {
         location: string;
@@ -61,28 +63,23 @@ export const Survey = () => {
 
     useEffect(() => {
         const fetchOptions = async () => {
-            setIsLoading(true);
+            try {
+                setIsLoading(true);
+                const optionReponse = await axios.get("http://localhost:3000/survey/options");
 
-            let locationResponse = await axios.get("http://localhost:3000/customer/locations");
-            let serviceResponse = await axios.get("http://localhost:3000/customer/services");
-            let addonOptions = [""];
+                surveyOptions.current = optionReponse.data;
 
-            const locationOptions = locationResponse.data.map((item : { location_name: string }) => item.location_name);
-            const serviceOptions = serviceResponse.data.map((item : { service_name: string }) => item.service_name);
-
-            surveyOptions.current = {
-                locations: locationOptions,
-                services: serviceOptions,
-                addons: addonOptions,
+               console.log(optionReponse.data);
+            } catch(error) {
+                setError(true);
+            } finally {
+                setIsLoading(false);
             }
-
-            setIsLoading(false);
-            console.log(surveyOptions.current);
+            
+            //console.log(surveyOptions.current);
         }
 
-        fetchOptions();
-        
-        
+        fetchOptions();        
     }, [])
     
     const handleChange = (data: Partial<FormInformation>) => {
@@ -109,7 +106,7 @@ export const Survey = () => {
 
     const pages = [
         <FirstPage 
-        handleChange={handleChange} handleNext={handleNext}  surveyOptions={surveyOptions.current}
+        handleChange={handleChange} handleNext={handleNext} surveyOptions={surveyOptions.current}
         defaultValues={{ 
             location: formInformation.current.location, 
             arriveTime: formInformation.current.arriveTime, 
@@ -130,15 +127,19 @@ export const Survey = () => {
             carYear: formInformation.current.carYear,
             licensePlateNumber: formInformation.current.licensePlateNumber,
         }}/>,
-        <FourthPage handleChange={handleChange} handleBack={handleBack} fullSubmit={handleSubmit}
+        <FourthPage handleChange={handleChange} handleBack={handleBack} fullSubmit={handleSubmit} surveyOptions={surveyOptions.current}
         defaultValues={{
             service: formInformation.current.service,
             addons: formInformation.current.addons,
         }}/>
     ];
 
-     
-
+    if(hasError) {
+        return (
+            <div><ErrorPage/></div>
+            )
+    }
+    
     return (
         <div>
             {isLoading?<LoadingPage/>:pages[currentPage]}
