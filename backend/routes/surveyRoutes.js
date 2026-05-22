@@ -32,12 +32,19 @@ router.get('/options', async (req, res) => {
     }
 })
 
-// this is what to call on the frontend: localhost:3000/survey/calculate-costs?service=${service}&size={size}
-// fetching time it would take and price:
+// this is what to call on the frontend: localhost:3000/survey/calculate-costs?service=${service}&size=${size}&addons=${addons}
+// fetching the duration and price:
 router.get('/calculate-costs', async (req, res) => {
     try {
-        const {service, size} = req.query;
+        const {service, size, addons} = req.query;
 
+        console.log(addons[0])
+
+        const { data : d, error : e } = await supabase.from('addon')
+                                        .select('addon_id')
+                                        .in('addon_name', addons)
+        res.status(200).json({ d })
+/*
         if(!service || !size) {
             res.status(400).json({error : 'service and size are required'})
         }
@@ -61,10 +68,14 @@ router.get('/calculate-costs', async (req, res) => {
         }
         
         res.status(200).json({pricing: servicePricing, duration: serviceDuration});
-
+*/
     } catch(err) {
         res.json({error: err.message})
     }
 })
+
+const calculateAddonCost = () => {
+    
+}
 
 module.exports = router;
