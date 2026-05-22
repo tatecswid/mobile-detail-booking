@@ -37,38 +37,52 @@ router.get('/options', async (req, res) => {
 router.get('/calculate-costs', async (req, res) => {
     try {
         const {service, size, addons} = req.query;
-
-        console.log(addons[0])
-
         const { data : d, error : e } = await supabase.from('addon')
                                         .select('addon_id')
                                         .in('addon_name', addons)
-        res.status(200).json({ d })
-/*
+        const addon_ids = d.map(({addon_id}) => addon_id)
+        
+        
+
+        const { data : addonCostData, error :sdf } = await supabase.from('addon_pricing')
+                                        .select('duration_minutes, price')
+                                        .eq('car_size', size)
+                                        .in('addon_id', addon_ids)
+        console.log(addonCostData)
+
+        let pricing = 0;
+        let duration = 0;
+
+        addonCostData.map(addonOptions => {
+            pricing += addonOptions.price
+            duration += addonOptions.duration_minutes
+        })
+
         if(!service || !size) {
             res.status(400).json({error : 'service and size are required'})
         }
 
-        const { data, error } = await supabase.from('service')
+        const { data : sd, error: ef } = await supabase.from('service')
                                             .select('*, service_pricing!inner(*)')
                                             .eq('service_name', service)
                                             .eq('service_pricing.car_size', size);
-        const serviceRequest = data[0].service_pricing[0];
+        const serviceRequest = sd[0].service_pricing[0];
         
+        console.log(serviceRequest)
 
-        if(!data || data.length === 0 || !serviceRequest) {
+        if(!sd || sd.length === 0 || !serviceRequest) {
             res.status(404).json({error: 'no pricing found for that service and size'})
         }
 
-        const servicePricing = serviceRequest.price;
-        const serviceDuration = serviceRequest.duration_minutes;
+        pricing += serviceRequest.price;
+        duration += serviceRequest.duration_minutes;
 
-        if(error) {
+       /* if(error) {
             res.status(500).json({error : 'something went wrong, try again later'});
-        }
+        }*/
         
-        res.status(200).json({pricing: servicePricing, duration: serviceDuration});
-*/
+        res.status(200).json({pricing, duration});
+
     } catch(err) {
         res.json({error: err.message})
     }
