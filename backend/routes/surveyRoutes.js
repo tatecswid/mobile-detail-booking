@@ -3,7 +3,7 @@ const router = express.Router();
 
 const supabase = require("../config/supabaseClient")
 
-// fetching all of the availible options such as locations, services, and addons
+// sends back all of the availible options of locations and services it offers
 router.get('/options', async (req, res) => {
     try{
         const { data: locationResponse, error: locationError} = await supabase.from('location').select('location_name');
@@ -15,12 +15,10 @@ router.get('/options', async (req, res) => {
         const options = {
             locations: locationOptions, 
             services: serviceOptions,
-            addons: addonOptions,
         };
 
-        if(locationError || serviceError || addonError) {
-            res.status(500).json({error : 'could not fetch valid options, try again later'});
-            return;
+        if(locationError || serviceError) {
+            return res.status(500).json({error : 'could not fetch valid options, try again later'});
         }
 
         res.status(200).json(options);
@@ -31,13 +29,14 @@ router.get('/options', async (req, res) => {
 })
 
 // localhost:3000/survey/appropriate-addons?serviceType=${service}
+// sends back the appropriate addons of the selected service type
 router.get('/appropriate-addons', async (req, res) => {
     try {
         const { serviceType } = req.query;
         const { data : selectedId, error : selectedServiceIdError } = await supabase.from('service')
                                                                         .select('service_id')
                                                                         .eq('service_name', serviceType)
-        let serviceId = selectedId[0].service_id;
+        const serviceId = selectedId[0].service_id;
 
         const allowedServices = {
             1 : [1],
@@ -50,71 +49,75 @@ router.get('/appropriate-addons', async (req, res) => {
                                                                         .in('service_req', allowedServices[serviceId])
 
         if(selectedServiceIdError || availibleAddonsError) {
-            res.status(500).json({error : 'could not fetch valid options, try again later'});
-            return;
+            return res.status(500).json({error : 'could not fetch valid options, try again later'});
         }
 
-        res.status(200).json(availibleAddons.map(({ addon_name }) => addon_name))
+        res.status(200).json(availibleAddons.map(({ addon_name }) => addon_name));
 
     } catch(err) {
-        res.json({error: err.message})
+        res.json({error: err.message});
     }
 })
 
 // this is what to call on the frontend: localhost:3000/survey/calculate-costs?service=${service}&size=${size}&addons=${addons}
-// fetching the duration and price:
+// sends back the duration and the price of the selected service, size, and addons:
 router.get('/calculate-costs', async (req, res) => {
     try {
         const {service, size, addons} = req.query;
-        const { data : d, error : e } = await supabase.from('addon')
-                                        .select('addon_id')
-                                        .in('addon_name', addons)
-        const addon_ids = d.map(({addon_id}) => addon_id)
-        
-        
-
-        const { data : addonCostData, error :sdf } = await supabase.from('addon_pricing')
-                                        .select('duration_minutes, price')
-                                        .eq('car_size', size)
-                                        .in('addon_id', addon_ids)
-        console.log(addonCostData)
-
-        let pricing = 0;
-        let duration = 0;
-
-        addonCostData.map(addonOptions => {
-            pricing += addonOptions.price
-            duration += addonOptions.duration_minutes
-        })
 
         if(!service || !size) {
-            res.status(400).json({error : 'service and size are required'})
+            res.status(400).json({error : 'service and size are required'});
         }
 
-        const { data : sd, error: ef } = await supabase.from('service')
+
+        const { data : addonRows, error : addonError } = await supabase.from('addon')
+                                        .select('addon_id')
+                                        .in('addon_name', addons);
+        if(addonError) throw addonError
+
+        const addon_ids = addonRows.map(({addon_id}) => addon_id)
+        const { data : addonPricingRows, error : addonPricingError } = await supabase.from('addon_pricing')
+                                        .select('duration_minutes, price')
+                                        .eq('car_size', size)
+                                        .in('addon_id', addon_ids);
+        if(addonPricingError) throw addonPricingError;
+
+        let totalPrice = 0;
+        let totalDuration = 0;
+
+        addonPricingRows.map(addonOptions => {
+            totalPrice += addonOptions.price;
+            totalDuration += addonOptions.duration_minutes;
+        })
+        
+        const { data : selectedServiceCost, error: serviceCostError } = await supabase.from('service')
                                             .select('*, service_pricing!inner(*)')
                                             .eq('service_name', service)
                                             .eq('service_pricing.car_size', size);
-        const serviceRequest = sd[0].service_pricing[0];
         
-        console.log(serviceRequest)
+        if(serviceCostError) throw serviceCostError;
+        
+        const serviceRequest = selectedServiceCost[0].service_pricing[0];
 
-        if(!sd || sd.length === 0 || !serviceRequest) {
-            res.status(404).json({error: 'no pricing found for that service and size'})
+        if(!selectedServiceCost || selectedServiceCost.length === 0 || !serviceRequest) {
+            return res.status(404).json({error: 'no pricing found for that service and size'});
         }
 
-        pricing += serviceRequest.price;
-        duration += serviceRequest.duration_minutes;
-
-       /* if(error) {
-            res.status(500).json({error : 'something went wrong, try again later'});
-        }*/
+        totalPrice += serviceRequest.price;
+        totalDuration += serviceRequest.duration_minutes;
         
-        res.status(200).json({pricing, duration});
+        res.status(200).json({totalPrice, totalDuration});
 
     } catch(err) {
-        res.json({error: err.message})
+        res.json({error: err.message});
     }
 })
+
+/* TODO -- In need of two more HTTP methods: (WILL LIKELY ADD MORE AS WELL)
+    - a GET for getting the min and max time for departure.
+    - a POST for taking in requested booking, running scheduling algorithm 
+      to see if times would work and then either putting it into the database
+      or sending back a failure.
+*/
 
 module.exports = router;
