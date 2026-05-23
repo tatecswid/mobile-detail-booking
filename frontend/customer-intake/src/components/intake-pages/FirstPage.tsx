@@ -56,7 +56,7 @@ export const FirstPage = (props : FirstPageProps) => {
                     <label htmlFor="location">Location: </label>
                     <select id="location" className={inputStyle}  {...register("location")}>
                         <option value="" disabled>SELECT ONE</option>
-                        {props.surveyOptions.locations.map((val : any) => {
+                        {props.surveyOptions?.locations.map((val : any) => {
                             return <option key={val} value={val}>{val}</option>
                         })}
                         <option value="testing">testing</option>

@@ -3,16 +3,14 @@ const router = express.Router();
 
 const supabase = require("../config/supabaseClient")
 
-// fetching locations
+// fetching all of the availible options such as locations, services, and addons
 router.get('/options', async (req, res) => {
     try{
         const { data: locationResponse, error: locationError} = await supabase.from('location').select('location_name');
         const { data: serviceResponse, error: serviceError } = await supabase.from('service').select('service_name');
-        const { data: addonResponse, error: addonError } = await supabase.from('addon').select('addon_name');
         
         const locationOptions = locationResponse.map((item) => item.location_name);
         const serviceOptions = serviceResponse.map((item) => item.service_name);
-        const addonOptions = addonResponse.map((item) => item.addon_name);
         
         const options = {
             locations: locationOptions, 
@@ -26,6 +24,37 @@ router.get('/options', async (req, res) => {
         }
 
         res.status(200).json(options);
+
+    } catch(err) {
+        res.json({error: err.message})
+    }
+})
+
+// localhost:3000/survey/appropriate-addons?serviceType=${service}
+router.get('/appropriate-addons', async (req, res) => {
+    try {
+        const { serviceType } = req.query;
+        const { data : selectedId, error : selectedServiceIdError } = await supabase.from('service')
+                                                                        .select('service_id')
+                                                                        .eq('service_name', serviceType)
+        let serviceId = selectedId[0].service_id;
+
+        const allowedServices = {
+            1 : [1],
+            2 : [2],
+            3 : [1,2],
+        };
+
+        const { data : availibleAddons, error : availibleAddonsError } = await supabase.from('addon')
+                                                                        .select('addon_name')
+                                                                        .in('service_req', allowedServices[serviceId])
+
+        if(selectedServiceIdError || availibleAddonsError) {
+            res.status(500).json({error : 'could not fetch valid options, try again later'});
+            return;
+        }
+
+        res.status(200).json(availibleAddons.map(({ addon_name }) => addon_name))
 
     } catch(err) {
         res.json({error: err.message})
@@ -87,9 +116,5 @@ router.get('/calculate-costs', async (req, res) => {
         res.json({error: err.message})
     }
 })
-
-const calculateAddonCost = () => {
-    
-}
 
 module.exports = router;
