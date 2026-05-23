@@ -8,7 +8,7 @@ import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(0);
+    const [currentPage, setCurrentPage] = useState(3);
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
     
