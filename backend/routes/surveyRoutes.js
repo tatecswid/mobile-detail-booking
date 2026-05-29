@@ -66,20 +66,15 @@ router.get('/calculate-costs', async (req, res) => {
         const {service, size, addons} = req.query;
 
         if(!service || !size) {
-            res.status(400).json({error : 'service and size are required'});
+            return res.status(400).json({error : 'service and size are required'});
         }
 
+        const { serviceID, addonIDs } = await findIDFromNames(service, addons)
 
-        const { data : addonRows, error : addonError } = await supabase.from('addon')
-                                        .select('addon_id')
-                                        .in('addon_name', addons);
-        if(addonError) throw addonError
-
-        const addon_ids = addonRows.map(({addon_id}) => addon_id)
         const { data : addonPricingRows, error : addonPricingError } = await supabase.from('addon_pricing')
                                         .select('duration_minutes, price')
                                         .eq('car_size', size)
-                                        .in('addon_id', addon_ids);
+                                        .in('addon_id', addonIDs);
         if(addonPricingError) throw addonPricingError;
 
         let totalPrice = 0;
@@ -119,5 +114,75 @@ router.get('/calculate-costs', async (req, res) => {
       to see if times would work and then either putting it into the database
       or sending back a failure.
 */
+router.post('/book', async (req, res) => {
+    const { 
+        location,
+        arriveTime,
+        leaveTime,
+        
+        firstName,
+        lastName,
+        email,
+        phoneNumber,
+
+        carType,
+        carMake,
+        carModel,
+        carYear,
+        licensePlateNumber,
+
+        service,
+        addons,
+
+        total,
+    } = res.body;
+})
+
+/**
+ * derives some of the booking information we need in order to fill out the booking_info table
+ * 
+ * @param { string } location
+ * @throws { detailDayError } if the location either doesn't exist or doesn't have an availible detail day
+ * @returns { int } detailDayID
+ */
+const checkLocationValidity = async (location) => {
+    const { data : locationRow, error : locationError } = await supabase.from('location')
+                                        .select('location_id')
+                                        .eq('location_name', locationName);
+    const locationID = locationRow[0].location_id;
+    if(locationError) throw locationError;
+
+    const {data : detailDayRow, error : detailDayError} = await supabase.from('detail_day')
+                                        .select('detail_day_id')
+                                        .eq('location_id', locationID)
+                                        .gt('date', new Date().toISOString())
+                                        .order('date', { ascending: true })
+                                        .limit(1);
+    if(detailDayError) throw detailDayError
+}
+
+/**
+ * finds the service id and addon id based soley on the 
+ * 
+ * @param {string} serviceName
+ * @param {Array<string>} addonName
+ * @param {string} locationName
+ * @returns {{serviceID: int, addonIDs: Array<int>, locationID: string}}
+ */
+const findIDFromNames = async (serviceName, addonName) => {
+    const { data : serviceRow, error : serviceError} = await supabase.from('service')
+                                        .select('service_id')
+                                        .eq('service_name', serviceName)
+    const serviceID = serviceRow[0].service_id;
+    if(serviceError) throw serviceError;
+
+    const { data : addonRows, error : addonError } = await supabase.from('addon')
+                                        .select('addon_id')
+                                        .in('addon_name', addonName);
+    const addonIDs = addonRows.map(({addon_id}) => addon_id)
+    if(addonError) throw addonError;
+    
+    return { serviceID, addonIDs };
+}
 
 module.exports = router;
