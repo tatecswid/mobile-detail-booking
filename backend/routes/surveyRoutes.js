@@ -135,7 +135,14 @@ router.post('/book', async (req, res) => {
         addons,
 
         total,
-    } = res.body;
+    } = req.body;
+})
+
+router.get('/this', async (req, res) => {
+    const { location } = req.query;
+    console.log(location);
+    const check = await checkLocationValidity(location);
+    return res.status(200).json(check);
 })
 
 /**
@@ -145,20 +152,28 @@ router.post('/book', async (req, res) => {
  * @throws { detailDayError } if the location either doesn't exist or doesn't have an availible detail day
  * @returns { int } detailDayID
  */
-const checkLocationValidity = async (location) => {
-    const { data : locationRow, error : locationError } = await supabase.from('location')
-                                        .select('location_id')
-                                        .eq('location_name', locationName);
-    const locationID = locationRow[0].location_id;
+const checkLocationValidity = async (locationName) => {
+    const { data : locationRow, error : locationError } = await supabase
+        .from('location')
+        .select('location_id')
+        .eq('location_name', locationName)
+        .maybeSingle();
+
     if(locationError) throw locationError;
+    const locationID = locationRow.location_id;
 
     const {data : detailDayRow, error : detailDayError} = await supabase.from('detail_day')
                                         .select('detail_day_id')
                                         .eq('location_id', locationID)
                                         .gt('date', new Date().toISOString())
                                         .order('date', { ascending: true })
-                                        .limit(1);
+                                        .limit(1)
+                                        .maybeSingle();
     if(detailDayError) throw detailDayError
+
+    if(detailDayRow < 1) throw new Error("Next detail date not availible for location yet.")
+
+    return detailDayRow.detail_day_id;
 }
 
 /**
@@ -167,7 +182,7 @@ const checkLocationValidity = async (location) => {
  * @param {string} serviceName
  * @param {Array<string>} addonName
  * @param {string} locationName
- * @returns {{serviceID: int, addonIDs: Array<int>, locationID: string}}
+ * @returns {{serviceID: int, addonIDs: Array<int>, locationID: int }}
  */
 const findIDFromNames = async (serviceName, addonName) => {
     const { data : serviceRow, error : serviceError} = await supabase.from('service')
