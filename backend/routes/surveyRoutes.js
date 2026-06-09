@@ -6,8 +6,12 @@ const supabase = require("../config/supabaseClient")
 // sends back all of the availible options of locations and services it offers
 router.get('/options', async (req, res) => {
     try{
-        const { data: locationResponse, error: locationError} = await supabase.from('location').select('location_name');
-        const { data: serviceResponse, error: serviceError } = await supabase.from('service').select('service_name');
+        const { data: locationResponse, error: locationError} = await supabase
+            .from('location')
+            .select('location_name');
+        const { data: serviceResponse, error: serviceError } = await supabase
+            .from('service')
+            .select('service_name');
         
         const locationOptions = locationResponse.map((item) => item.location_name);
         const serviceOptions = serviceResponse.map((item) => item.service_name);
@@ -33,10 +37,12 @@ router.get('/options', async (req, res) => {
 router.get('/appropriate-addons', async (req, res) => {
     try {
         const { serviceType } = req.query;
-        const { data : selectedId, error : selectedServiceIdError } = await supabase.from('service')
-                                                                        .select('service_id')
-                                                                        .eq('service_name', serviceType)
-        const serviceId = selectedId[0].service_id;
+        const { data : selectedId, error : selectedServiceIdError } = await supabase
+            .from('service')
+            .select('service_id')
+            .eq('service_name', serviceType)
+            .maybeSingle();
+        const serviceId = selectedId.service_id;
 
         const allowedServices = {
             1 : [1],
@@ -44,9 +50,10 @@ router.get('/appropriate-addons', async (req, res) => {
             3 : [1,2],
         };
 
-        const { data : availibleAddons, error : availibleAddonsError } = await supabase.from('addon')
-                                                                        .select('addon_name')
-                                                                        .in('service_req', allowedServices[serviceId])
+        const { data : availibleAddons, error : availibleAddonsError } = await supabase
+            .from('addon')
+            .select('addon_name')
+            .in('service_req', allowedServices[serviceId])
 
         if(selectedServiceIdError || availibleAddonsError) {
             return res.status(500).json({error : 'could not fetch valid options, try again later'});
@@ -71,10 +78,12 @@ router.get('/calculate-costs', async (req, res) => {
 
         const { serviceID, addonIDs } = await findIDFromNames(service, addons)
 
-        const { data : addonPricingRows, error : addonPricingError } = await supabase.from('addon_pricing')
-                                        .select('duration_minutes, price')
-                                        .eq('car_size', size)
-                                        .in('addon_id', addonIDs);
+        const { data : addonPricingRows, error : addonPricingError } = await supabase
+            .from('addon_pricing')
+            .select('duration_minutes, price')
+            .eq('car_size', size)
+            .in('addon_id', addonIDs);
+        
         if(addonPricingError) throw addonPricingError;
 
         let totalPrice = 0;
@@ -115,27 +124,32 @@ router.get('/calculate-costs', async (req, res) => {
       or sending back a failure.
 */
 router.post('/book', async (req, res) => {
-    const { 
-        location,
-        arriveTime,
-        leaveTime,
-        
-        firstName,
-        lastName,
-        email,
-        phoneNumber,
+    try {
+        const { 
+            location,
+            arriveTime,
+            leaveTime,
+            
+            firstName,
+            lastName,
+            email,
+            phoneNumber,
 
-        carType,
-        carMake,
-        carModel,
-        carYear,
-        licensePlateNumber,
+            carType,
+            carMake,
+            carModel,
+            carYear,
+            licensePlateNumber,
 
-        service,
-        addons,
+            service,
+            addons,
 
-        total,
-    } = req.body;
+            total,
+        } = req.body;
+    }
+    catch(err) {
+        res.json({error: err.message});
+    }
 })
 
 router.get('/this', async (req, res) => {
@@ -144,6 +158,72 @@ router.get('/this', async (req, res) => {
     const check = await checkLocationValidity(location);
     return res.status(200).json(check);
 })
+
+
+const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
+    const detailDayID = await checkLocationValidity(location);
+    const { data : bookingInfoRows , error : bookingRowsError } = await supabase
+        .from('booking_info')
+        .select('arrival_time, departure_time, total_duration_minutes')
+        .eq('detail_day_id', detailDayID);
+
+    if(bookingRowsError) throw bookingRowsError;
+
+    const attemptedBookingRows = [
+        ...bookingInfoRows.map(e, index => ({ ...e, id: index++})),
+        {
+            arrival_time: arriveTime, 
+            departure_time: leaveTime, 
+            total_duration_minutes: duration
+        }
+    ];
+
+    fitted = new Set();
+
+    bookingRowsEarliest = [...attemptedBookingRows].sort((a,b) => 
+        a.arrival_time.localeCompare(b.arrival_time) || a.departure_time.localeCompare(b.departure_time) 
+    )
+    bookingRowsLatest = [...attemptedBookingRows].sort((a,b) => 
+        a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time) 
+    )
+
+    let startTime = detailDayStart // <---- still have to get this data
+
+    let i = 0;
+    let j = 0;
+    while(fitted.size < attemptedBookingRows.length) {
+        if(fitted.has(bookingRowsLatest[j].id)) {
+            j++; 
+            continue;
+        }
+        if(fitted.has(bookingRowsEarliest[i].id)) {
+            i++;
+            continue;
+        }
+
+        if(bookingRowsLatest[j].arrival_time <= startTime) {
+            endTime = startTime + bookingRowsLatest[j].total_duration_minutes;
+            if(endTime > bookingRowsLatest[j].departure_time) {
+                return false;
+            }
+            fitted.add(bookingRowsLatest[j].id)
+            j++;
+        }
+        else {
+            startTime = bookingRowsEarliest[i].arrival_time > startTime 
+                ? bookingRowsEarliest[i].arrival_time : startTime;
+            endTime = startTime + bookingRowsEarliest[i].total_duration_minutes;
+            if(endTime > bookingRowsEarliest[i].departure_time) {
+                return false;
+            }
+            fitted.add(bookingRowsEarliest[i].id)
+            i++;
+        }
+
+        startTime = endTime;
+    }
+    return true;
+}
 
 /**
  * derives some of the booking information we need in order to fill out the booking_info table
@@ -160,24 +240,26 @@ const checkLocationValidity = async (locationName) => {
         .maybeSingle();
 
     if(locationError) throw locationError;
+    if(!locationRow) throw new Error(`Location "${locationName}" does not exist.`);
+
     const locationID = locationRow.location_id;
 
-    const {data : detailDayRow, error : detailDayError} = await supabase.from('detail_day')
-                                        .select('detail_day_id')
-                                        .eq('location_id', locationID)
-                                        .gt('date', new Date().toISOString())
-                                        .order('date', { ascending: true })
-                                        .limit(1)
-                                        .maybeSingle();
-    if(detailDayError) throw detailDayError
-
-    if(detailDayRow < 1) throw new Error("Next detail date not availible for location yet.")
+    const {data : detailDayRow, error : detailDayError} = await supabase
+        .from('detail_day')
+        .select('detail_day_id')
+        .eq('location_id', locationID)
+        .gt('date', new Date().toISOString())
+        .order('date', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+    if(detailDayError) throw detailDayError;
+    if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
     return detailDayRow.detail_day_id;
 }
 
 /**
- * finds the service id and addon id based soley on the 
+ * finds the service id and addon id based only on the names
  * 
  * @param {string} serviceName
  * @param {Array<string>} addonName
@@ -185,15 +267,17 @@ const checkLocationValidity = async (locationName) => {
  * @returns {{serviceID: int, addonIDs: Array<int>, locationID: int }}
  */
 const findIDFromNames = async (serviceName, addonName) => {
-    const { data : serviceRow, error : serviceError} = await supabase.from('service')
-                                        .select('service_id')
-                                        .eq('service_name', serviceName)
+    const { data : serviceRow, error : serviceError} = await supabase
+        .from('service')
+        .select('service_id')
+        .eq('service_name', serviceName)
     const serviceID = serviceRow[0].service_id;
     if(serviceError) throw serviceError;
 
-    const { data : addonRows, error : addonError } = await supabase.from('addon')
-                                        .select('addon_id')
-                                        .in('addon_name', addonName);
+    const { data : addonRows, error : addonError } = await supabase
+        .from('addon')
+        .select('addon_id')
+        .in('addon_name', addonName);
     const addonIDs = addonRows.map(({addon_id}) => addon_id)
     if(addonError) throw addonError;
     
