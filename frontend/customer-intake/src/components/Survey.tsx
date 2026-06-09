@@ -8,7 +8,7 @@ import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(3);
+    const [currentPage, setCurrentPage] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
     
@@ -27,6 +27,8 @@ export const Survey = () => {
         licensePlateNumber: string;
         service: string;
         addons: string[];
+        totalPrice: number,
+        totalDuration: number,
     };
 
     const formInformation = useRef<FormInformation>( {
@@ -47,6 +49,9 @@ export const Survey = () => {
 
         service: "",
         addons: [""],
+
+        totalPrice: Math.max(),
+        totalDuration: Math.max(),
     });
     
     type SurveyOptions = {
