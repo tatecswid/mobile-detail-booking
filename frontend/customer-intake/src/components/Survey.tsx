@@ -80,6 +80,16 @@ export const Survey = () => {
         }
         fetchOptions();        
     }, [])
+
+    const fetchAddonOptions = async (serviceType: string) => {
+        try {
+            const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${serviceType}`);
+            return addonOptionResponse.data
+        } catch(error) {
+            setError(true);
+            return [];
+        }
+    }
     
     const handleChange = (data: Partial<FormInformation>) => {
         formInformation.current = {
@@ -126,11 +136,12 @@ export const Survey = () => {
             carYear: formInformation.current.carYear,
             licensePlateNumber: formInformation.current.licensePlateNumber,
         }}/>,
-        <FourthPage handleChange={handleChange} handleBack={handleBack} fullSubmit={handleSubmit} surveyOptions={surveyOptions.current}
+        <FourthPage handleChange={handleChange} getAppropriateAddons={fetchAddonOptions} handleBack={handleBack} fullSubmit={handleSubmit} surveyOptions={surveyOptions.current}
         defaultValues={{
             service: formInformation.current.service,
             addons: formInformation.current.addons,
-        }}/>
+        }} 
+        />
     ];
 
     if(hasError) {
