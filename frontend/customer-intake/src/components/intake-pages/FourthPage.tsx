@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,14 +21,16 @@ type FourthFormProps = {
     handleChange: (data: FourthPageFields) => void;
     fullSubmit: () => void;
     handleBack: () => void;
+    getAppropriateAddons: (serviceName : string) => Promise<Array<string>>
     defaultValues: Partial<FourthPageFields>;
     surveyOptions: SurveyOptions;
 }
 
 export const FourthPage = (props : FourthFormProps) => {
+    const [addons, setAddons] = useState<string[]>([]);
+
     const { register, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
         service: props.defaultValues.service, 
-        addons: props.defaultValues.addons,
     }, resolver: zodResolver(schema)});
 
     const onSubmit: SubmitHandler<FourthPageFields> = (data) => {
@@ -46,19 +49,30 @@ export const FourthPage = (props : FourthFormProps) => {
                     <legend>Select a service:</legend>
                     <div className='grid grid-cols-2 gap-4'>
                         { props.surveyOptions.services.map(serviceOption => {
-                            return <label className={`${optionStyle} flex items-center gap-2`}><input type='radio' value={serviceOption} {...register("service")}/>{serviceOption}</label>
+                            return (
+                            <label className={`${optionStyle} flex items-center gap-2`}>
+                                <input type='radio' value={serviceOption} {...register("service", {
+                                    onChange: async (e) => {
+                                        const appropriateAddons = await props.getAppropriateAddons(e.target.value);
+                                        setAddons(appropriateAddons);
+                                    }
+                                })}/>
+                                {serviceOption}
+                            </label>
+                            )
                         })}
                     </div>
                     { errors.service && <div className={errorStyle}>{errors.service.message}</div> }
                 </div>
-                <div className='flex flex-col gap-1'>
+                {addons.length>0 && 
+                (<div className='flex flex-col gap-1'>
                     <legend>Select addons:</legend>
                     <div className='grid grid-cols-2 gap-4'>
-                        { props.surveyOptions.addons.map(addonOption => {
+                        { addons.map(addonOption => {
                             return <label className={`${optionStyle} flex items-center gap-2 py-1`}><input type='checkbox' {...register("addons")} value={addonOption}/>{addonOption}</label>
                         })}
                     </div>
-                </div>
+                </div>)}
                 <div className='grid grid-cols-2 gap-4 pt-4'>
                     <button type='button' onClick={props.handleBack} className={buttonStyle}>Last Page</button>
                     <input type="submit" value="Submit form" className={buttonStyle}></input>
