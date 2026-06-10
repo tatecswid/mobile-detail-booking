@@ -19,8 +19,9 @@ type SurveyOptions = {
 
 type FourthFormProps = {
     handleChange: (data: FourthPageFields) => void;
-    fullSubmit: () => void;
+    handleNext: () => void;
     handleBack: () => void;
+    calculateTotals: () => void;
     getAppropriateAddons: (serviceName : string) => Promise<Array<string>>
     defaultValues: Partial<FourthPageFields>;
     surveyOptions: SurveyOptions;
@@ -29,13 +30,14 @@ type FourthFormProps = {
 export const FourthPage = (props : FourthFormProps) => {
     const [addons, setAddons] = useState<string[]>([]);
 
-    const { register, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
-        service: props.defaultValues.service, 
+    const { register, resetField, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
+        service: props.defaultValues.service,
     }, resolver: zodResolver(schema)});
 
     const onSubmit: SubmitHandler<FourthPageFields> = (data) => {
         props.handleChange(data);
-        props.fullSubmit();
+        props.calculateTotals();
+        props.handleNext();
     }
 
     return (
@@ -55,6 +57,7 @@ export const FourthPage = (props : FourthFormProps) => {
                                     onChange: async (e) => {
                                         const appropriateAddons = await props.getAppropriateAddons(e.target.value);
                                         setAddons(appropriateAddons);
+                                        resetField("addons");
                                     }
                                 })}/>
                                 {serviceOption}
@@ -69,7 +72,11 @@ export const FourthPage = (props : FourthFormProps) => {
                     <legend>Select addons:</legend>
                     <div className='grid grid-cols-2 gap-4'>
                         { addons.map(addonOption => {
-                            return <label className={`${optionStyle} flex items-center gap-2 py-1`}><input type='checkbox' {...register("addons")} value={addonOption}/>{addonOption}</label>
+                            return (
+                            <label className={`${optionStyle} flex items-center gap-2 py-1`}>
+                                <input type='checkbox' {...register("addons")} value={addonOption} defaultChecked={false}/>
+                                {addonOption}
+                            </label> )
                         })}
                     </div>
                 </div>)}
