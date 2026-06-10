@@ -4,11 +4,12 @@ import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
 import { FourthPage } from "./intake-pages/FourthPage";
+import { FifthPage } from "./intake-pages/FifthPage";
 import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(0);
+    const [currentPage, setCurrentPage] = useState(2);
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
     
@@ -90,6 +91,23 @@ export const Survey = () => {
             return [];
         }
     }
+
+    const calculateTotals = async () => {
+        try {
+            setIsLoading(true);
+            const addonOptions = encodeURIComponent(formInformation.current.addons.join(','))
+            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
+            formInformation.current = {
+                ...formInformation.current,
+                ...costResponse.data,
+            };
+            console.log(costResponse.data)
+        } catch(error) {
+            setError(true);
+        } finally {
+            setIsLoading(false);
+        }
+    }
     
     const handleChange = (data: Partial<FormInformation>) => {
         formInformation.current = {
@@ -105,7 +123,7 @@ export const Survey = () => {
     }
 
     const handleNext = () => {
-        if(currentPage < 3)
+        if(currentPage < pages.length)
             setCurrentPage(currentPage+1);
     }
 
@@ -136,12 +154,13 @@ export const Survey = () => {
             carYear: formInformation.current.carYear,
             licensePlateNumber: formInformation.current.licensePlateNumber,
         }}/>,
-        <FourthPage handleChange={handleChange} getAppropriateAddons={fetchAddonOptions} handleBack={handleBack} fullSubmit={handleSubmit} surveyOptions={surveyOptions.current}
+        <FourthPage handleChange={handleChange} getAppropriateAddons={fetchAddonOptions} calculateTotals={calculateTotals} handleBack={handleBack} handleNext={handleNext} surveyOptions={surveyOptions.current}
         defaultValues={{
             service: formInformation.current.service,
             addons: formInformation.current.addons,
         }} 
-        />
+        />,
+        <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={formInformation.current.totalPrice} duration={formInformation.current.totalDuration}/>
     ];
 
     if(hasError) {

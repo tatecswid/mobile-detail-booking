@@ -40,7 +40,7 @@ export const SecondPage = (props : SecondPageProps) => {
                 <h2 className={formDescriptionStyle}>Please fill out the contact information</h2>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className='flex flex-col gap-5 px-3 '>
-                <div className='grid grid-rows-2 gap-4'>
+                <div className='grid grid-cols-2 gap-4'>
                     <div className='flex flex-col gap-y-1'>
                         <label htmlFor='first-name'>First Name:</label>
                         <input type='text' className={inputStyle} {...register("firstName")}></input>
