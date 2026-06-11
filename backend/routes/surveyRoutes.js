@@ -72,11 +72,13 @@ router.get('/calculate-costs', async (req, res) => {
     try {
         const {service, size, addons} = req.query;
 
+        const addonList = [].concat(addons || []);
+
         if(!service || !size) {
             return res.status(400).json({error : 'service and size are required'});
         }
 
-        const { serviceID, addonIDs } = await findIDFromNames(service, addons)
+        const { serviceID, addonIDs } = await findIDFromNames(service, addonList)
 
         const { data : addonPricingRows, error : addonPricingError } = await supabase
             .from('addon_pricing')
