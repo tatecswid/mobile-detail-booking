@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,7 @@ type FourthPageFields = z.infer<typeof schema>
 type SurveyOptions = {
     locations: string[],
     services: string[],
+    possibleAddons: string[],
     addons: string[],
 }
 
@@ -30,8 +31,15 @@ type FourthFormProps = {
 export const FourthPage = (props : FourthFormProps) => {
     const [addons, setAddons] = useState<string[]>([]);
 
+    useEffect(() => {
+        if(props.surveyOptions.possibleAddons !== null) {
+            setAddons(props.surveyOptions.possibleAddons);
+        }
+    }, [])
+
     const { register, resetField, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
         service: props.defaultValues.service,
+        addons: props.defaultValues.addons,
     }, resolver: zodResolver(schema)});
 
     const onSubmit: SubmitHandler<FourthPageFields> = (data) => {
@@ -57,7 +65,7 @@ export const FourthPage = (props : FourthFormProps) => {
                                     onChange: async (e) => {
                                         const appropriateAddons = await props.getAppropriateAddons(e.target.value);
                                         setAddons(appropriateAddons);
-                                        resetField("addons");
+                                        resetField("addons", { defaultValue: [] });
                                     }
                                 })}/>
                                 {serviceOption}
@@ -67,7 +75,7 @@ export const FourthPage = (props : FourthFormProps) => {
                     </div>
                     { errors.service && <div className={errorStyle}>{errors.service.message}</div> }
                 </div>
-                {addons.length>0 && 
+                {addons && 
                 (<div className='flex flex-col gap-1'>
                     <legend>Select addons:</legend>
                     <div className='grid grid-cols-2 gap-4'>

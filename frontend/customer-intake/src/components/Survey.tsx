@@ -58,12 +58,14 @@ export const Survey = () => {
     type SurveyOptions = {
         locations: string[],
         services: string[],
+        possibleAddons: string[],
         addons: string[],
     }
 
     const surveyOptions = useRef<SurveyOptions>({
         locations: [""],
         services: [""],
+        possibleAddons: [""],
         addons: [""],
     })
 
@@ -85,6 +87,7 @@ export const Survey = () => {
     const fetchAddonOptions = async (serviceType: string) => {
         try {
             const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${serviceType}`);
+            surveyOptions.current.possibleAddons = addonOptionResponse.data;
             return addonOptionResponse.data
         } catch(error) {
             setError(true);
@@ -95,12 +98,15 @@ export const Survey = () => {
     const calculateTotals = async () => {
         try {
             setIsLoading(true);
-            const addonOptions = encodeURIComponent(formInformation.current.addons.join(','))
-            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
+            const addonOptions = formInformation.current.addons
+                .map(addon => `addons=${encodeURIComponent(addon)}`)
+                .join('&');
+            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&${addonOptions}`)
             formInformation.current = {
                 ...formInformation.current,
                 ...costResponse.data,
             };
+            console.log(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
             console.log(costResponse.data)
         } catch(error) {
             setError(true);
