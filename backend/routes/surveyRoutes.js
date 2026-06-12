@@ -146,6 +146,7 @@ router.post('/book', async (req, res) => {
             service,
             addons,
 
+<<<<<<< HEAD
             total,
         } = req.body;
     }
@@ -164,6 +165,24 @@ router.get('/this', async (req, res) => {
 
 const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
     const detailDayID = await checkLocationValidity(location);
+=======
+            totalPrice,
+            totalDuration,
+        } = req.body;
+
+        const canFit = await checkAvaibility(location, arriveTime, leaveTime, totalDuration)
+        console.log(canFit);
+        res.status(200).json({message: canFit})
+    }
+    catch(err) {
+        res.json({error: err.message});
+        console.log(err.message)
+    }
+})
+
+const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) => {
+    const {detailDayID, timeStart} = await checkLocationValidity(location);
+>>>>>>> feature/frontend/fetch-prices-durations
     const { data : bookingInfoRows , error : bookingRowsError } = await supabase
         .from('booking_info')
         .select('arrival_time, departure_time, total_duration_minutes')
@@ -171,6 +190,7 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
 
     if(bookingRowsError) throw bookingRowsError;
 
+<<<<<<< HEAD
     const attemptedBookingRows = [
         ...bookingInfoRows.map(e, index => ({ ...e, id: index++})),
         {
@@ -181,10 +201,23 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
     ];
 
     fitted = new Set();
+=======
+    let attemptedBookingRows = [
+        ...bookingInfoRows.map((e, index) => ({ ...e, id: index++})),
+        {
+            arrival_time: arriveTime, 
+            departure_time: leaveTime, 
+            total_duration_minutes: totalDuration
+        }
+    ];
+
+    earliestDeadlinePriorityQueue = [];
+>>>>>>> feature/frontend/fetch-prices-durations
 
     bookingRowsEarliest = [...attemptedBookingRows].sort((a,b) => 
         a.arrival_time.localeCompare(b.arrival_time) || a.departure_time.localeCompare(b.departure_time) 
     )
+<<<<<<< HEAD
     bookingRowsLatest = [...attemptedBookingRows].sort((a,b) => 
         a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time) 
     )
@@ -225,6 +258,45 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
         startTime = endTime;
     }
     return true;
+=======
+    
+    let currentTime = timeStart;
+
+    while(bookingRowsEarliest.length > 0 || earliestDeadlinePriorityQueue.length > 0) {
+        bookingRowsEarliest = bookingRowsEarliest.filter(bookingRow => {
+            if(bookingRow.arrival_time <= currentTime) {
+                earliestDeadlinePriorityQueue.push(bookingRow)
+                return false;
+            }
+            return true;
+        })
+
+        if(earliestDeadlinePriorityQueue.length == 0) {
+            currentTime = bookingRowsEarliest[0].arrival_time;
+            continue;
+        }
+
+        earliestDeadlinePriorityQueue.sort((a,b) => 
+            a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time)
+        )
+
+        const job = earliestDeadlinePriorityQueue.shift();
+        const finishTime = addMinutes(currentTime, job.total_duration_minutes);
+
+        if(finishTime > job.departure_time) {
+            return false;
+        }
+
+        currentTime = finishTime;
+    }    
+    return true;
+
+    function addMinutes(time, mins) {
+        const d = new Date(`2000-01-01T${time}`);
+        d.setMinutes(d.getMinutes() + mins);
+        return d.toTimeString().slice(0, 8);
+    }
+>>>>>>> feature/frontend/fetch-prices-durations
 }
 
 /**
@@ -232,7 +304,11 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
  * 
  * @param { string } location
  * @throws { detailDayError } if the location either doesn't exist or doesn't have an availible detail day
+<<<<<<< HEAD
  * @returns { int } detailDayID
+=======
+ * @returns { int, string } detailDayID
+>>>>>>> feature/frontend/fetch-prices-durations
  */
 const checkLocationValidity = async (locationName) => {
     const { data : locationRow, error : locationError } = await supabase
@@ -248,7 +324,11 @@ const checkLocationValidity = async (locationName) => {
 
     const {data : detailDayRow, error : detailDayError} = await supabase
         .from('detail_day')
+<<<<<<< HEAD
         .select('detail_day_id')
+=======
+        .select('detail_day_id', 'time_start')
+>>>>>>> feature/frontend/fetch-prices-durations
         .eq('location_id', locationID)
         .gt('date', new Date().toISOString())
         .order('date', { ascending: true })
@@ -257,7 +337,11 @@ const checkLocationValidity = async (locationName) => {
     if(detailDayError) throw detailDayError;
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
+<<<<<<< HEAD
     return detailDayRow.detail_day_id;
+=======
+    return {detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start};
+>>>>>>> feature/frontend/fetch-prices-durations
 }
 
 /**

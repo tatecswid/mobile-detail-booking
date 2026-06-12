@@ -9,7 +9,11 @@ import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
+<<<<<<< HEAD
     const [currentPage, setCurrentPage] = useState(2);
+=======
+    const [currentPage, setCurrentPage] = useState(0);
+>>>>>>> feature/frontend/fetch-prices-durations
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
     
@@ -58,12 +62,20 @@ export const Survey = () => {
     type SurveyOptions = {
         locations: string[],
         services: string[],
+<<<<<<< HEAD
+=======
+        possibleAddons: string[],
+>>>>>>> feature/frontend/fetch-prices-durations
         addons: string[],
     }
 
     const surveyOptions = useRef<SurveyOptions>({
         locations: [""],
         services: [""],
+<<<<<<< HEAD
+=======
+        possibleAddons: [""],
+>>>>>>> feature/frontend/fetch-prices-durations
         addons: [""],
     })
 
@@ -85,6 +97,10 @@ export const Survey = () => {
     const fetchAddonOptions = async (serviceType: string) => {
         try {
             const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${serviceType}`);
+<<<<<<< HEAD
+=======
+            surveyOptions.current.possibleAddons = addonOptionResponse.data;
+>>>>>>> feature/frontend/fetch-prices-durations
             return addonOptionResponse.data
         } catch(error) {
             setError(true);
@@ -95,12 +111,23 @@ export const Survey = () => {
     const calculateTotals = async () => {
         try {
             setIsLoading(true);
+<<<<<<< HEAD
             const addonOptions = encodeURIComponent(formInformation.current.addons.join(','))
             const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
+=======
+            const addonOptions = formInformation.current.addons
+                .map(addon => `addons=${encodeURIComponent(addon)}`)
+                .join('&');
+            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&${addonOptions}`)
+>>>>>>> feature/frontend/fetch-prices-durations
             formInformation.current = {
                 ...formInformation.current,
                 ...costResponse.data,
             };
+<<<<<<< HEAD
+=======
+            console.log(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
+>>>>>>> feature/frontend/fetch-prices-durations
             console.log(costResponse.data)
         } catch(error) {
             setError(true);
@@ -127,8 +154,9 @@ export const Survey = () => {
             setCurrentPage(currentPage+1);
     }
 
-    const handleSubmit = () => {
-        console.log(formInformation);
+    const handleSubmit = async () => {
+        const res = await axios.post(`http://localhost:3000/survey/book`, formInformation.current)
+        console.log(res.data);
     }
 
     const pages = [

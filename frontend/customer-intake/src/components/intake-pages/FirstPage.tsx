@@ -59,7 +59,10 @@ export const FirstPage = (props : FirstPageProps) => {
                         {props.surveyOptions?.locations.map((val : any) => {
                             return <option key={val} value={val}>{val}</option>
                         })}
+<<<<<<< HEAD
                         <option value="testing">testing</option>
+=======
+>>>>>>> feature/frontend/fetch-prices-durations
                     </select>
                     { errors.location && <div className={errorStyle}>{errors.location.message}</div> }
                 </div>
