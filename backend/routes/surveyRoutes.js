@@ -146,24 +146,22 @@ router.post('/book', async (req, res) => {
             service,
             addons,
 
-            total,
+            totalPrice,
+            totalDuration,
         } = req.body;
+
+        const canFit = await checkAvaibility(location, arriveTime, leaveTime, totalDuration)
+        console.log(canFit);
+        res.status(200).json({message: canFit})
     }
     catch(err) {
         res.json({error: err.message});
+        console.log(err.message)
     }
 })
 
-router.get('/this', async (req, res) => {
-    const { location } = req.query;
-    console.log(location);
-    const check = await checkLocationValidity(location);
-    return res.status(200).json(check);
-})
-
-
-const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
-    const detailDayID = await checkLocationValidity(location);
+const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) => {
+    const {detailDayID, timeStart} = await checkLocationValidity(location);
     const { data : bookingInfoRows , error : bookingRowsError } = await supabase
         .from('booking_info')
         .select('arrival_time, departure_time, total_duration_minutes')
@@ -172,11 +170,11 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
     if(bookingRowsError) throw bookingRowsError;
 
     let attemptedBookingRows = [
-        ...bookingInfoRows.map(e, index => ({ ...e, id: index++})),
+        ...bookingInfoRows.map((e, index) => ({ ...e, id: index++})),
         {
             arrival_time: arriveTime, 
             departure_time: leaveTime, 
-            total_duration_minutes: duration
+            total_duration_minutes: totalDuration
         }
     ];
 
@@ -186,7 +184,7 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
         a.arrival_time.localeCompare(b.arrival_time) || a.departure_time.localeCompare(b.departure_time) 
     )
     
-    let currentTime = timeStart // need to get the detail day start.
+    let currentTime = timeStart;
 
     while(bookingRowsEarliest.length > 0 || earliestDeadlinePriorityQueue.length > 0) {
         bookingRowsEarliest = bookingRowsEarliest.filter(bookingRow => {
@@ -202,18 +200,26 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
             continue;
         }
 
-        earliestDeadlinePriorityQueue.sort(a,b => a.departure_time - b.departure_time)
+        earliestDeadlinePriorityQueue.sort((a,b) => 
+            a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time)
+        )
 
         const job = earliestDeadlinePriorityQueue.shift();
-        const finishTime = currentTime + job.total_duration_minutes;
+        const finishTime = addMinutes(currentTime, job.total_duration_minutes);
 
-        if(finishTime > currentAppointment.departure_time) {
+        if(finishTime > job.departure_time) {
             return false;
         }
 
         currentTime = finishTime;
     }    
     return true;
+
+    function addMinutes(time, mins) {
+        const d = new Date(`2000-01-01T${time}`);
+        d.setMinutes(d.getMinutes() + mins);
+        return d.toTimeString().slice(0, 8);
+    }
 }
 
 /**
@@ -221,7 +227,7 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
  * 
  * @param { string } location
  * @throws { detailDayError } if the location either doesn't exist or doesn't have an availible detail day
- * @returns { int } detailDayID
+ * @returns { int, string } detailDayID
  */
 const checkLocationValidity = async (locationName) => {
     const { data : locationRow, error : locationError } = await supabase
@@ -237,7 +243,7 @@ const checkLocationValidity = async (locationName) => {
 
     const {data : detailDayRow, error : detailDayError} = await supabase
         .from('detail_day')
-        .select('detail_day_id')
+        .select('detail_day_id', 'time_start')
         .eq('location_id', locationID)
         .gt('date', new Date().toISOString())
         .order('date', { ascending: true })
@@ -246,7 +252,7 @@ const checkLocationValidity = async (locationName) => {
     if(detailDayError) throw detailDayError;
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
-    return detailDayRow.detail_day_id;
+    return {detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start};
 }
 
 /**

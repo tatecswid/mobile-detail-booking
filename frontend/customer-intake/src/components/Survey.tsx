@@ -9,7 +9,7 @@ import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(2);
+    const [currentPage, setCurrentPage] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
     
@@ -134,8 +134,8 @@ export const Survey = () => {
     }
 
     const handleSubmit = async () => {
-        const res = await axios.post(`` ,formInformation.current)
-        console.log(res);
+        const res = await axios.post(`http://localhost:3000/survey/book`, formInformation.current)
+        console.log(res.data);
     }
 
     const pages = [

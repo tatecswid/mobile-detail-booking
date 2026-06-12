@@ -59,7 +59,6 @@ export const FirstPage = (props : FirstPageProps) => {
                         {props.surveyOptions?.locations.map((val : any) => {
                             return <option key={val} value={val}>{val}</option>
                         })}
-                        <option value="testing">testing</option>
                     </select>
                     { errors.location && <div className={errorStyle}>{errors.location.message}</div> }
                 </div>
