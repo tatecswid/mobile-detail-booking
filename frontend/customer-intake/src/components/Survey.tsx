@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import axios, { Axios } from "axios";
+import axios from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
