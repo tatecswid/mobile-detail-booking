@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import axios from "axios";
+import axios, { Axios } from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
@@ -133,8 +133,9 @@ export const Survey = () => {
             setCurrentPage(currentPage+1);
     }
 
-    const handleSubmit = () => {
-        console.log(formInformation);
+    const handleSubmit = async () => {
+        const res = await axios.post(`` ,formInformation.current)
+        console.log(res);
     }
 
     const pages = [

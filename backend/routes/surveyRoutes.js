@@ -171,7 +171,7 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
 
     if(bookingRowsError) throw bookingRowsError;
 
-    const attemptedBookingRows = [
+    let attemptedBookingRows = [
         ...bookingInfoRows.map(e, index => ({ ...e, id: index++})),
         {
             arrival_time: arriveTime, 
@@ -180,50 +180,39 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
         }
     ];
 
-    fitted = new Set();
+    earliestDeadlinePriorityQueue = [];
 
     bookingRowsEarliest = [...attemptedBookingRows].sort((a,b) => 
         a.arrival_time.localeCompare(b.arrival_time) || a.departure_time.localeCompare(b.departure_time) 
     )
-    bookingRowsLatest = [...attemptedBookingRows].sort((a,b) => 
-        a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time) 
-    )
+    
+    let currentTime = timeStart // need to get the detail day start.
 
-    let startTime = detailDayStart // <---- still have to get this data
-
-    let i = 0;
-    let j = 0;
-    while(fitted.size < attemptedBookingRows.length) {
-        if(fitted.has(bookingRowsLatest[j].id)) {
-            j++; 
-            continue;
-        }
-        if(fitted.has(bookingRowsEarliest[i].id)) {
-            i++;
-            continue;
-        }
-
-        if(bookingRowsLatest[j].arrival_time <= startTime) {
-            endTime = startTime + bookingRowsLatest[j].total_duration_minutes;
-            if(endTime > bookingRowsLatest[j].departure_time) {
+    while(bookingRowsEarliest.length > 0 || earliestDeadlinePriorityQueue.length > 0) {
+        bookingRowsEarliest = bookingRowsEarliest.filter(bookingRow => {
+            if(bookingRow.arrival_time <= currentTime) {
+                earliestDeadlinePriorityQueue.push(bookingRow)
                 return false;
             }
-            fitted.add(bookingRowsLatest[j].id)
-            j++;
-        }
-        else {
-            startTime = bookingRowsEarliest[i].arrival_time > startTime 
-                ? bookingRowsEarliest[i].arrival_time : startTime;
-            endTime = startTime + bookingRowsEarliest[i].total_duration_minutes;
-            if(endTime > bookingRowsEarliest[i].departure_time) {
-                return false;
-            }
-            fitted.add(bookingRowsEarliest[i].id)
-            i++;
+            return true;
+        })
+
+        if(earliestDeadlinePriorityQueue.length == 0) {
+            currentTime = bookingRowsEarliest[0].arrival_time;
+            continue;
         }
 
-        startTime = endTime;
-    }
+        earliestDeadlinePriorityQueue.sort(a,b => a.departure_time - b.departure_time)
+
+        const job = earliestDeadlinePriorityQueue.shift();
+        const finishTime = currentTime + job.total_duration_minutes;
+
+        if(finishTime > currentAppointment.departure_time) {
+            return false;
+        }
+
+        currentTime = finishTime;
+    }    
     return true;
 }
 
