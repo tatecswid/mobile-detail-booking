@@ -146,32 +146,30 @@ router.post('/book', async (req, res) => {
             service,
             addons,
 
-<<<<<<< HEAD
-            total,
-        } = req.body;
-    }
-    catch(err) {
-        res.json({error: err.message});
-    }
-})
-
-router.get('/this', async (req, res) => {
-    const { location } = req.query;
-    console.log(location);
-    const check = await checkLocationValidity(location);
-    return res.status(200).json(check);
-})
-
-
-const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
-    const detailDayID = await checkLocationValidity(location);
-=======
             totalPrice,
             totalDuration,
         } = req.body;
 
         const canFit = await checkAvaibility(location, arriveTime, leaveTime, totalDuration)
-        console.log(canFit);
+        if(canFit) {
+            const { data : addPendingRowData , error : addPendingRowError } = await supabase
+                .from('pending_booking')
+                .insert({
+                    stripe_payment_intent_id: 0,
+                    location: location,
+                    arrive_time: arriveTime,
+                    departure_time: leaveTime,
+                    expires_at: new Date(Date.now() + 5 * 60 * 1000)
+                })
+
+                if(addPendingRowError) throw addPendingRowError;
+        } else {
+            return res.status(409).json({
+                error: "SCHEDULING_CONFLICT",
+                message: "Unable to fit request into the schedule.",
+            })
+        }
+
         res.status(200).json({message: canFit})
     }
     catch(err) {
@@ -180,30 +178,39 @@ const checkAvaibility = async (location, arriveTime, leaveTime, duration) => {
     }
 })
 
+router.post('/confirm-book', async (req, res) => {
+    // insert stripe payment validation here
+    const stripePaymentId;
+
+    const { data : pending, error: pendingError } = await supabase
+        .from('pending_booking')
+        .select('*')
+        .eq('stripe_payment_intent_id', stripePaymentId)
+        .maybeSingle();
+})
+
+// algorithm that checks if a request could be fit into the schedule.
+/* returns true if can be fit, returns false if not
+*/
 const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) => {
     const {detailDayID, timeStart} = await checkLocationValidity(location);
->>>>>>> feature/frontend/fetch-prices-durations
-    const { data : bookingInfoRows , error : bookingRowsError } = await supabase
+    const { data : acceptedBookingRows, error : acceptedBookingRowsError } = await supabase
         .from('booking_info')
         .select('arrival_time, departure_time, total_duration_minutes')
         .eq('detail_day_id', detailDayID);
 
-    if(bookingRowsError) throw bookingRowsError;
+    if(acceptedBookingRowsError) throw acceptedBookingRowsError;
 
-<<<<<<< HEAD
-    const attemptedBookingRows = [
-        ...bookingInfoRows.map(e, index => ({ ...e, id: index++})),
-        {
-            arrival_time: arriveTime, 
-            departure_time: leaveTime, 
-            total_duration_minutes: duration
-        }
-    ];
+    const { data : pendingBookingRows, error : pendingBookingRowsError } = await supabase
+        .from('pending_booking')
+        .select('arrival_time', 'departure_time, total_duration_minutes')
+        .eq('location', location);
+    
+    if(pendingBookingRowsError) throw pendingBookingRowsError;
 
-    fitted = new Set();
-=======
     let attemptedBookingRows = [
-        ...bookingInfoRows.map((e, index) => ({ ...e, id: index++})),
+        ...acceptedBookingRows,
+        ...pendingBookingRows,
         {
             arrival_time: arriveTime, 
             departure_time: leaveTime, 
@@ -212,53 +219,10 @@ const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) =
     ];
 
     earliestDeadlinePriorityQueue = [];
->>>>>>> feature/frontend/fetch-prices-durations
 
     bookingRowsEarliest = [...attemptedBookingRows].sort((a,b) => 
         a.arrival_time.localeCompare(b.arrival_time) || a.departure_time.localeCompare(b.departure_time) 
     )
-<<<<<<< HEAD
-    bookingRowsLatest = [...attemptedBookingRows].sort((a,b) => 
-        a.departure_time.localeCompare(b.departure_time) || a.arrival_time.localeCompare(b.arrival_time) 
-    )
-
-    let startTime = detailDayStart // <---- still have to get this data
-
-    let i = 0;
-    let j = 0;
-    while(fitted.size < attemptedBookingRows.length) {
-        if(fitted.has(bookingRowsLatest[j].id)) {
-            j++; 
-            continue;
-        }
-        if(fitted.has(bookingRowsEarliest[i].id)) {
-            i++;
-            continue;
-        }
-
-        if(bookingRowsLatest[j].arrival_time <= startTime) {
-            endTime = startTime + bookingRowsLatest[j].total_duration_minutes;
-            if(endTime > bookingRowsLatest[j].departure_time) {
-                return false;
-            }
-            fitted.add(bookingRowsLatest[j].id)
-            j++;
-        }
-        else {
-            startTime = bookingRowsEarliest[i].arrival_time > startTime 
-                ? bookingRowsEarliest[i].arrival_time : startTime;
-            endTime = startTime + bookingRowsEarliest[i].total_duration_minutes;
-            if(endTime > bookingRowsEarliest[i].departure_time) {
-                return false;
-            }
-            fitted.add(bookingRowsEarliest[i].id)
-            i++;
-        }
-
-        startTime = endTime;
-    }
-    return true;
-=======
     
     let currentTime = timeStart;
 
@@ -296,7 +260,6 @@ const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) =
         d.setMinutes(d.getMinutes() + mins);
         return d.toTimeString().slice(0, 8);
     }
->>>>>>> feature/frontend/fetch-prices-durations
 }
 
 /**
@@ -304,11 +267,7 @@ const checkAvaibility = async (location, arriveTime, leaveTime, totalDuration) =
  * 
  * @param { string } location
  * @throws { detailDayError } if the location either doesn't exist or doesn't have an availible detail day
-<<<<<<< HEAD
- * @returns { int } detailDayID
-=======
  * @returns { int, string } detailDayID
->>>>>>> feature/frontend/fetch-prices-durations
  */
 const checkLocationValidity = async (locationName) => {
     const { data : locationRow, error : locationError } = await supabase
@@ -324,11 +283,7 @@ const checkLocationValidity = async (locationName) => {
 
     const {data : detailDayRow, error : detailDayError} = await supabase
         .from('detail_day')
-<<<<<<< HEAD
-        .select('detail_day_id')
-=======
         .select('detail_day_id', 'time_start')
->>>>>>> feature/frontend/fetch-prices-durations
         .eq('location_id', locationID)
         .gt('date', new Date().toISOString())
         .order('date', { ascending: true })
@@ -337,12 +292,13 @@ const checkLocationValidity = async (locationName) => {
     if(detailDayError) throw detailDayError;
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
-<<<<<<< HEAD
-    return detailDayRow.detail_day_id;
-=======
     return {detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start};
->>>>>>> feature/frontend/fetch-prices-durations
 }
+
+const saveBookingIfNeeded = async (paymentIntentId, bookingFeilds) => {
+    
+}
+
 
 /**
  * finds the service id and addon id based only on the names

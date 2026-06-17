@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useState } from 'react';
-=======
 import { useEffect, useState } from 'react';
->>>>>>> feature/frontend/fetch-prices-durations
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,10 +14,7 @@ type FourthPageFields = z.infer<typeof schema>
 type SurveyOptions = {
     locations: string[],
     services: string[],
-<<<<<<< HEAD
-=======
     possibleAddons: string[],
->>>>>>> feature/frontend/fetch-prices-durations
     addons: string[],
 }
 
@@ -38,10 +31,6 @@ type FourthFormProps = {
 export const FourthPage = (props : FourthFormProps) => {
     const [addons, setAddons] = useState<string[]>([]);
 
-<<<<<<< HEAD
-    const { register, resetField, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
-        service: props.defaultValues.service,
-=======
     useEffect(() => {
         if(props.surveyOptions.possibleAddons !== null) {
             setAddons(props.surveyOptions.possibleAddons);
@@ -51,7 +40,6 @@ export const FourthPage = (props : FourthFormProps) => {
     const { register, resetField, handleSubmit, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
         service: props.defaultValues.service,
         addons: props.defaultValues.addons,
->>>>>>> feature/frontend/fetch-prices-durations
     }, resolver: zodResolver(schema)});
 
     const onSubmit: SubmitHandler<FourthPageFields> = (data) => {
@@ -77,11 +65,7 @@ export const FourthPage = (props : FourthFormProps) => {
                                     onChange: async (e) => {
                                         const appropriateAddons = await props.getAppropriateAddons(e.target.value);
                                         setAddons(appropriateAddons);
-<<<<<<< HEAD
-                                        resetField("addons");
-=======
                                         resetField("addons", { defaultValue: [] });
->>>>>>> feature/frontend/fetch-prices-durations
                                     }
                                 })}/>
                                 {serviceOption}
@@ -91,11 +75,7 @@ export const FourthPage = (props : FourthFormProps) => {
                     </div>
                     { errors.service && <div className={errorStyle}>{errors.service.message}</div> }
                 </div>
-<<<<<<< HEAD
-                {addons.length>0 && 
-=======
                 {addons && 
->>>>>>> feature/frontend/fetch-prices-durations
                 (<div className='flex flex-col gap-1'>
                     <legend>Select addons:</legend>
                     <div className='grid grid-cols-2 gap-4'>
