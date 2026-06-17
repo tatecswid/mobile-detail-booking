@@ -41,7 +41,7 @@ router.get('/appropriate-addons', async (req, res) => {
             .from('service')
             .select('service_id')
             .eq('service_name', serviceType)
-            .maybeSingle();
+            .single();
         const serviceId = selectedId.service_id;
 
         const allowedServices = {
@@ -180,13 +180,13 @@ router.post('/book', async (req, res) => {
 
 router.post('/confirm-book', async (req, res) => {
     // insert stripe payment validation here
-    const stripePaymentId;
-
-    const { data : pending, error: pendingError } = await supabase
-        .from('pending_booking')
-        .select('*')
-        .eq('stripe_payment_intent_id', stripePaymentId)
-        .maybeSingle();
+    try {
+        const { stripePaymentId, firstName, lastName, email, phoneNumber,
+            carType, carMake, carModel, carYear, licensePlateNumber,
+            service, addons } = req.body;
+    } catch(err) {
+        res.status(500).json({error: err.message});
+    }    
 })
 
 // algorithm that checks if a request could be fit into the schedule.
@@ -274,7 +274,7 @@ const checkLocationValidity = async (locationName) => {
         .from('location')
         .select('location_id')
         .eq('location_name', locationName)
-        .maybeSingle();
+        .single();
 
     if(locationError) throw locationError;
     if(!locationRow) throw new Error(`Location "${locationName}" does not exist.`);
@@ -288,7 +288,7 @@ const checkLocationValidity = async (locationName) => {
         .gt('date', new Date().toISOString())
         .order('date', { ascending: true })
         .limit(1)
-        .maybeSingle();
+        .single();
     if(detailDayError) throw detailDayError;
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
@@ -296,7 +296,35 @@ const checkLocationValidity = async (locationName) => {
 }
 
 const saveBookingIfNeeded = async (paymentIntentId, bookingFeilds) => {
+    const { data: existing } = await supabase
+        .from('booking_info')
+        .select('*')
+        .eq('stripe_payment_intent_id', paymentIntentId)
+        .single();
+    if(existing) return { status : "alreadySaved" };
+
+    const { data : pending, error: pendingError } = await supabase
+        .from('pending_booking')
+        .select('*')
+        .eq('stripe_payment_intent_id', paymentIntentId)
+        .single();
+    if(!pending || pendingError ) return { status: "session expired" };
+
+    const { error } = await supabase
+        .from('booking_info')
+        .insert({
+            arrival_time = pending.arrival_time,
+            departure_time = pending.departure_time,
+            total_duration_minutes: pending.total_duration_minutes,
+            stripe_payment_intent_id: pending.stripe_payment_intent_id,
+            ...bookingFeilds
+        });
     
+    if(error) throw error;
+    
+    await supabase.from('pending_booking').delete().eq('stripe_payment_intent_id', paymentIntentId);
+
+    return { status: 'booked' };
 }
 
 
