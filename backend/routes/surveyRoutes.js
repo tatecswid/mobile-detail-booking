@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const supabase = require("../config/supabaseClient")
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 // sends back all of the availible options of locations and services it offers
 router.get('/options', async (req, res) => {
@@ -163,6 +164,30 @@ router.post('/book', async (req, res) => {
                 })
 
                 if(addPendingRowError) throw addPendingRowError;
+
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: totalPrice,
+                    currency: "usd",
+                    metadata: {
+                        first_name: firstName,
+                        last_name: lastName,
+                        email: email,
+                        phone_number: phoneNumber,
+
+                        car_size: carType,
+                        car_make: carMake,
+                        car_model: carModel,
+                        car_year: carYear,
+                        license_plate: licensePlateNumber,
+
+                        service: service,
+                        addons: addons,
+                    }
+                })
+
+                res.send({
+                    clientSecret: paymentIntent.client_secret,
+                })
         } else {
             return res.status(409).json({
                 error: "SCHEDULING_CONFLICT",
@@ -181,9 +206,16 @@ router.post('/book', async (req, res) => {
 router.post('/confirm-book', async (req, res) => {
     // insert stripe payment validation here
     try {
-        const { stripePaymentId, firstName, lastName, email, phoneNumber,
+        const bookingFields = { stripePaymentId, firstName, lastName, email, phoneNumber,
             carType, carMake, carModel, carYear, licensePlateNumber,
-            service, addons } = req.body;
+            service, addons, totalPrice } = req.body;
+        
+            const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentId);
+
+            if(paymentIntent !== 'succeeded') { return res.status(500).json({ error: "Stripe payment did not go through..." }) }
+            
+            saveBookingIfNeeded(bookingFields)
+
     } catch(err) {
         res.status(500).json({error: err.message});
     }    
@@ -292,41 +324,96 @@ const checkLocationValidity = async (locationName) => {
     if(detailDayError) throw detailDayError;
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
-    return {detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start};
+    return { detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start };
 }
 
-const saveBookingIfNeeded = async (paymentIntentId, bookingFeilds) => {
+const saveBookingIfNeeded = async (bookingFields) => {
     const { data: existing } = await supabase
         .from('booking_info')
         .select('*')
-        .eq('stripe_payment_intent_id', paymentIntentId)
+        .eq('stripe_payment_intent_id', bookingFields.stripePaymentId)
         .single();
     if(existing) return { status : "alreadySaved" };
 
     const { data : pending, error: pendingError } = await supabase
         .from('pending_booking')
         .select('*')
-        .eq('stripe_payment_intent_id', paymentIntentId)
+        .eq('stripe_payment_intent_id', bookingFields.stripePaymentId)
         .single();
     if(!pending || pendingError ) return { status: "session expired" };
 
-    const { error } = await supabase
+    const derivedData = await insertDetailData(bookingFields);
+
+    const { data: acceptedBookingRow, error } = await supabase
         .from('booking_info')
         .insert({
-            arrival_time = pending.arrival_time,
-            departure_time = pending.departure_time,
+            arrival_time: pending.arrival_time,
+            departure_time: pending.departure_time,
             total_duration_minutes: pending.total_duration_minutes,
             stripe_payment_intent_id: pending.stripe_payment_intent_id,
-            ...bookingFeilds
-        });
+            total_price: bookingFields.totalPrice,
+            ...derivedData,
+        })
+        .select()
+        .single();
     
     if(error) throw error;
+
+    // add booking_addon to current:
+    
     
     await supabase.from('pending_booking').delete().eq('stripe_payment_intent_id', paymentIntentId);
 
     return { status: 'booked' };
 }
 
+/*
+ * Insert all of the customer, vehicle, service, addons, and derive everything so we can insert it into the booking_info table, including
+ * detail_day_id
+ */
+const insertDetailData = async (bookingFields) => {
+    // customer ID:
+    const { customerContact, customerContactError } = await supabase
+        .from('customer_contact')
+        .insert({
+            first_name: bookingFields.firstName,
+            last_name: bookingFields.lastName,
+            email: bookingFields.email,
+            phone_number: bookingFields.phoneNumber,
+        })
+        .select('customer_id')
+        .single();
+    if(customerContactError) throw customerContactError;
+    const customer_id = customerContact.id;
+
+    // detail day ID:
+    const detail_day_id = await checkLocationValidity(bookingFields.location).detailDayID;
+    
+    // vehicle ID:
+    const { vehicleInfo, vehicleInfoError } = await supabase
+        .from('vehicle')
+        .insert({
+            license_plate: bookingFields.licensePlateNumber,
+            car_make: carMake,
+            car_model: carModel,
+            car_year: carYear,
+            car_size: carType,
+        })
+        .select('vehicle_id')
+        .single();
+    if(vehicleInfoError) throw vehicleInfoError;
+    const vehicle_id = vehicleInfo.id;
+
+    // service ID:
+    const service_id = await findIDFromNames(bookingFields.service);
+
+    return { 
+        customer_id,
+        detail_day_id,
+        vehicle_id,
+        service_id,
+    };
+}
 
 /**
  * finds the service id and addon id based only on the names
@@ -341,7 +428,8 @@ const findIDFromNames = async (serviceName, addonName) => {
         .from('service')
         .select('service_id')
         .eq('service_name', serviceName)
-    const serviceID = serviceRow[0].service_id;
+        .single();
+    const serviceID = serviceRow.service_id;
     if(serviceError) throw serviceError;
 
     const { data : addonRows, error : addonError } = await supabase

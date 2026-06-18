@@ -5,7 +5,6 @@ const cors = require('cors');
 const express = require('express');
 //const adminRoutes = require('./routes/adminRoutes');
 const customerRoutes = require('./routes/surveyRoutes');
-const stripe = require("stripe")(process.env.STRIPE_SECRET)
 
 const app = express();
 app.use(express.json());
