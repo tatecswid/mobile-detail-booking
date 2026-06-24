@@ -85,7 +85,7 @@ router.get('/cost', async (req, res) => {
 
         if(!service || !size) { return res.status(400).json({error : 'service and size are required'}); }
 
-        const {totalPrice, totalDuration} = await calculateCost(service, size, addonList);
+        const { totalPrice, totalDuration } = await calculateCost(service, size, addonList);
         res.status(200).json({totalPrice, totalDuration});
     } catch(err) {
         res.json({error: err.message});
@@ -439,12 +439,16 @@ const calculateCost = async (service, size, addons) => {
             .in('addon_name', addons)
     );
 
+    console.log(selectedAddonsCost);
+
     let totalPrice = 0;
     let totalDuration = 0;
 
     selectedAddonsCost.map(addonOptions => {
-        totalPrice += addonOptions.price;
-        totalDuration += addonOptions.duration_minutes;
+        const addonCost = addonOptions.addon_pricing[0];
+
+        totalPrice += addonCost.price;
+        totalDuration += addonCost.duration_minutes;
     })
     
     const selectedServiceCost = await query(
@@ -454,8 +458,9 @@ const calculateCost = async (service, size, addons) => {
             .eq('service_name', service)
             .eq('service_pricing.car_size', size)
             .single()
-    );    
-    const serviceRequest = selectedServiceCost.service_pricing;
+    );
+    console.log(selectedServiceCost);
+    const serviceRequest = selectedServiceCost.service_pricing[0];
 
     if(!selectedServiceCost || !serviceRequest) {
         throw Error('no pricing found for that service and size');
