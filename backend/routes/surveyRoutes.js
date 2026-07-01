@@ -86,6 +86,7 @@ router.get('/cost', async (req, res) => {
         if(!service || !size) { return res.status(400).json({error : 'service and size are required'}); }
 
         const { totalPrice, totalDuration } = await calculateCost(service, size, addonList);
+        console.log("price: " + totalPrice, " | duration: " + totalDuration);
         res.status(200).json({totalPrice, totalDuration});
     } catch(err) {
         res.json({error: err.message});
@@ -115,13 +116,15 @@ router.post('/booking', async (req, res) => {
             addons,
         } = req.body;
 
+        const addonList = [].concat(addons || []);
+
         const { totalPrice, totalDuration } = await calculateCost(service, carType, addons)
 
         const canFit = await checkAvaibility(location, arriveTime, leaveTime, totalDuration)
 
         if(canFit) {
             const paymentIntent = await stripe.paymentIntents.create({
-                amount: totalPrice * 100,
+                amount: Math.round(totalPrice) * 100,
                 currency: "usd",
                 metadata: {
                     first_name: firstName,
@@ -135,8 +138,8 @@ router.post('/booking', async (req, res) => {
                     car_year: carYear,
                     license_plate: licensePlateNumber,
 
-                    service: service,
-                    addons: addons,
+                    service,
+                    addons: JSON.stringify(addonList),
                 }
             })
 
@@ -146,15 +149,15 @@ router.post('/booking', async (req, res) => {
                     .insert({
                         stripe_payment_intent_id: paymentIntent.id,
                         location: location,
-                        arrive_time: arriveTime,
+                        arrival_time: arriveTime,
                         departure_time: leaveTime,
                         total_duration_minutes: totalDuration,
                         total_price: totalPrice,
-                        expires_at: new Date(Date.now() + 5 * 60 * 1000),
+                        expires_at: new Date(Date.now() + 5 * 60 * 1000).toTimeString().slice(0,8),
                 })
             );                
 
-            res.send({
+            res.status(200).json({
                 clientSecret: paymentIntent.client_secret,
             })
         } 
@@ -166,16 +169,17 @@ router.post('/booking', async (req, res) => {
         }
     }
     catch(err) {
-        res.json({error: err.message});
+        res.status(500).json({error: err.message});
+        console.log(err.message);
     }
 })
 
 router.post('/booking-confirmation', async (req, res) => {
     // insert stripe payment validation here
     try {
-        const bookingFields = req.body;
+        const { stripePaymentId } = req.body;
         
-            const paymentIntent = await stripe.paymentIntents.retrieve(bookingFields.stripePaymentId);
+            const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentId);
 
             if(paymentIntent.status !== 'succeeded') { return res.status(400).json({ error: "Stripe payment did not go through..." }) }
             
@@ -193,6 +197,24 @@ router.post('/booking-confirmation', async (req, res) => {
     } catch(err) {
         res.status(500).json({error: err.message});
     }    
+})
+
+let endpointSecret = "whsec_5a5620d3faffab914df96141ca6133f30dce3ada4c1f43cbba4fdd930ab66166";
+
+router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
+    let event;
+
+    if(endpointSecret) {
+        try {
+        const signature = req.headers['stripe-signature'];
+        event = stripe.webhooks.constructEvent(
+            req.body,
+            signature,
+        )
+        } catch(err) {
+            res.status(500).json(err.message);
+        }
+    }
 })
 
 // algorithm that checks if a request could be fit into the schedule.
@@ -281,7 +303,7 @@ const checkLocationValidity = async (locationName) => {
                 .from('location')
                 .select('location_id')
                 .eq('location_name', locationName)
-                .single()
+                .maybeSingle()
         );
     if(!locationRow) throw new Error(`Location "${locationName}" does not exist.`);
     const locationID = locationRow.location_id;
@@ -294,7 +316,7 @@ const checkLocationValidity = async (locationName) => {
             .gt('date', new Date().toISOString())
             .order('date', { ascending: true })
             .limit(1)
-            .single()
+            .maybeSingle()
     )
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
@@ -387,7 +409,7 @@ const insertDetailData = async (bookingFields) => {
                 phone_number: bookingFields.phoneNumber,
             })
             .select('customer_id')
-            .single()
+            .maybeSingle()
     );
     const customer_id = customerContact.customer_id;
 

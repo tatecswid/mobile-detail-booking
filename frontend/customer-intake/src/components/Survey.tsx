@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import axios from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
@@ -7,11 +9,17 @@ import { FourthPage } from "./intake-pages/FourthPage";
 import { FifthPage } from "./intake-pages/FifthPage";
 import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
+import { SuccessPage } from "./intermediate-pages/SuccessPage";
+import { CheckoutForm } from "./intake-pages/CheckoutForm";
+import { BrowserRouter as Router, Route, Routes } from "react-router";
 
 export const Survey = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [hasError, setError] = useState(false);
+
+    const stripePromise = loadStripe("pk_test_51TjR3YJGGV70rOUMpvlOqjseDg837tLF7sByGQusQA2HL0FFFenEReDm632SaFvd5TB0DwMhKyg92HeFmNW9XrKt00rVP6wvRN");
+    const [clientSecret, setClientSecret] = useState('');
     
     type FormInformation = {
         location: string;
@@ -28,8 +36,6 @@ export const Survey = () => {
         licensePlateNumber: string;
         service: string;
         addons: string[];
-        totalPrice: number,
-        totalDuration: number,
     };
 
     const formInformation = useRef<FormInformation>( {
@@ -50,9 +56,6 @@ export const Survey = () => {
 
         service: "",
         addons: [""],
-
-        totalPrice: Math.max(),
-        totalDuration: Math.max(),
     });
     
     type SurveyOptions = {
@@ -67,6 +70,16 @@ export const Survey = () => {
         services: [""],
         possibleAddons: [""],
         addons: [""],
+    })
+
+    type TotalCost = {
+        totalPrice: number,
+        totalDuration: number
+    }
+
+    const totalCost = useRef<TotalCost>({
+        totalPrice: 0,
+        totalDuration: 0,
     })
 
     useEffect(() => {
@@ -101,13 +114,11 @@ export const Survey = () => {
             const addonOptions = formInformation.current.addons
                 .map(addon => `addons=${encodeURIComponent(addon)}`)
                 .join('&');
-            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&${addonOptions}`)
-            formInformation.current = {
-                ...formInformation.current,
+            const costResponse = await axios(`http://localhost:3000/survey/cost?service=${formInformation.current.service}&size=${formInformation.current.carType}&${addonOptions}`)
+            totalCost.current = {
+                ...totalCost.current,
                 ...costResponse.data,
             };
-            console.log(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
-            console.log(costResponse.data)
         } catch(error) {
             setError(true);
         } finally {
@@ -134,9 +145,28 @@ export const Survey = () => {
     }
 
     const handleSubmit = async () => {
-        const res = await axios.post(`http://localhost:3000/survey/book`, formInformation.current)
-        console.log(res.data);
+        const res = await axios.post(`http://localhost:3000/survey/booking`, formInformation.current)
+        setClientSecret(res.data.clientSecret);
     }
+
+    /* just a simple little setup right now, fix it later:
+    */
+    const appearance = {
+        theme: 'stripe',
+    } as const;
+  // Enable the skeleton loader UI for optimal loading.
+    const loader = 'auto';
+    if(clientSecret) {
+        return (
+            <Elements 
+                stripe={stripePromise}
+                options={{clientSecret, appearance, loader}} 
+                >
+                <CheckoutForm />
+            </Elements>
+        )
+    }
+    
 
     const pages = [
         <FirstPage 
@@ -167,7 +197,7 @@ export const Survey = () => {
             addons: formInformation.current.addons,
         }} 
         />,
-        <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={formInformation.current.totalPrice} duration={formInformation.current.totalDuration}/>
+        <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={totalCost.current.totalPrice} duration={totalCost.current.totalDuration}/>
     ];
 
     if(hasError) {
@@ -177,8 +207,12 @@ export const Survey = () => {
     }
     
     return (
-        <div>
-            {isLoading?<LoadingPage/>:pages[currentPage]}
-        </div>
+        <Router>
+            <Routes>
+                <Route path="/" element={ <div> {isLoading?<LoadingPage />:pages[currentPage]} </div>} />
+                <Route path="/success" element={ <SuccessPage />} />
+            </Routes>
+        </Router>
     );
+    
 };
