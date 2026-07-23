@@ -76,6 +76,16 @@ router.get('/appropriate-addons', async (req, res) => {
     }
 })
 
+router.get('/appropriate-times', async (req,res) => {
+    try {
+        const { location } = req.query;
+        const { timeStart, timeEnd } = await checkLocationValidity(location);
+        res.status(200).json({ timeStart, timeEnd });
+    } catch(err) {
+        res.json({error: err.message});
+    }
+})
+
 // this is what to call on the frontend: localhost:3000/survey/cost?service=${service}&size=${size}&addons=${addons}
 // sends back the duration and the price of the selected service, size, and addons:
 router.get('/cost', async (req, res) => {
@@ -138,6 +148,8 @@ router.post('/booking', async (req, res) => {
                     car_year: carYear,
                     license_plate: licensePlateNumber,
 
+                    location,
+
                     service,
                     addons: JSON.stringify(addonList),
                 }
@@ -197,24 +209,6 @@ router.post('/booking-confirmation', async (req, res) => {
     } catch(err) {
         res.status(500).json({error: err.message});
     }    
-})
-
-let endpointSecret = "whsec_5a5620d3faffab914df96141ca6133f30dce3ada4c1f43cbba4fdd930ab66166";
-
-router.post('/webhook', express.raw({type: 'application/json'}), async (req, res) => {
-    let event;
-
-    if(endpointSecret) {
-        try {
-        const signature = req.headers['stripe-signature'];
-        event = stripe.webhooks.constructEvent(
-            req.body,
-            signature,
-        )
-        } catch(err) {
-            res.status(500).json(err.message);
-        }
-    }
 })
 
 // algorithm that checks if a request could be fit into the schedule.
@@ -311,7 +305,7 @@ const checkLocationValidity = async (locationName) => {
     const detailDayRow = await query(
         supabase
             .from('detail_day')
-            .select('detail_day_id', 'time_start')
+            .select('detail_day_id, time_start, time_end')
             .eq('location_id', locationID)
             .gt('date', new Date().toISOString())
             .order('date', { ascending: true })
@@ -320,7 +314,7 @@ const checkLocationValidity = async (locationName) => {
     )
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
-    return { detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start };
+    return { detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start, timeEnd: detailDayRow.time_end };
 }
 
 const saveBookingIfNeeded = async (bookingFields) => {
@@ -328,7 +322,7 @@ const saveBookingIfNeeded = async (bookingFields) => {
         supabase
             .from('booking_info')
             .select('*')
-            .eq('stripe_payment_intent_id', bookingFields.stripePaymentId)
+            .eq('stripe_payment_intent_id', bookingFields.stripe_payment_id)
             .maybeSingle()
     );
     if(existing) return { status : "already saved" };
@@ -337,7 +331,7 @@ const saveBookingIfNeeded = async (bookingFields) => {
         supabase
             .from('pending_booking')
             .select('*')
-            .eq('stripe_payment_intent_id', bookingFields.stripePaymentId)
+            .eq('stripe_payment_intent_id', bookingFields.stripe_payment_id)
             .maybeSingle()
     );
     if(!pending) return { status: "session expired" };
@@ -369,25 +363,25 @@ const saveBookingIfNeeded = async (bookingFields) => {
                 .select('addon_id')
                 .in('addon_name', addonList)
         );
-    }
-    
-    const bookingAddons = addonIDs.map(({ addon_id }) => ({
-        booking_id: acceptedBookingRow.booking_id,
-        addon_id,
-    }));
 
-    await query(
-        supabase
-            .from('booking_addon')
-            .insert(bookingAddons)
-    );
-    
+         const bookingAddons = addonIDs.map(({ addon_id }) => ({
+            booking_id: acceptedBookingRow.booking_id,
+            addon_id,
+        }));
+
+        await query(
+            supabase
+                .from('booking_addon')
+                .insert(bookingAddons)
+        );
+    }   
+
     // delete from pending booking
     await query(
         supabase
             .from('pending_booking')
             .delete()
-            .eq('stripe_payment_intent_id', bookingFields.stripePaymentId)
+            .eq('stripe_payment_intent_id', bookingFields.stripe_payment_id)
     );
 
     return { status: 'booked' };
@@ -403,10 +397,10 @@ const insertDetailData = async (bookingFields) => {
         supabase
             .from('customer_contact')
             .insert({
-                first_name: bookingFields.firstName,
-                last_name: bookingFields.lastName,
+                first_name: bookingFields.first_name,
+                last_name: bookingFields.last_name,
                 email: bookingFields.email,
-                phone_number: bookingFields.phoneNumber,
+                phone_number: bookingFields.phone_number,
             })
             .select('customer_id')
             .maybeSingle()
@@ -415,18 +409,17 @@ const insertDetailData = async (bookingFields) => {
 
     // getting detail day ID:
     const { detailDayID } = await checkLocationValidity(bookingFields.location);
-    const detail_day_id = detailDayID;
     
     // vehicle ID:
     const vehicleInfo = await query(
         supabase
         .from('vehicle')
         .insert({
-            license_plate: bookingFields.licensePlateNumber,
-            car_make: bookingFields.carMake,
-            car_model: bookingFields.carModel,
-            car_year: bookingFields.carYear,
-            car_size: bookingFields.carType,
+            license_plate: bookingFields.license_plate,
+            car_make: bookingFields.car_make,
+            car_model: bookingFields.car_model,
+            car_year: Number(bookingFields.car_year),
+            car_size: bookingFields.car_size,
         })
         .select('vehicle_id')
         .single()
@@ -445,7 +438,7 @@ const insertDetailData = async (bookingFields) => {
 
     return { 
         customer_id,
-        detail_day_id,
+        detail_day_id: detailDayID,
         vehicle_id,
         service_id,
     };
@@ -501,4 +494,7 @@ const query = async ( promise ) => {
     return data;
 }
 
-module.exports = router;
+module.exports = { 
+    router,
+    saveBookingIfNeeded,
+};
