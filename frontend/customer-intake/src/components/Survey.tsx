@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
 import axios from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
@@ -7,11 +9,26 @@ import { FourthPage } from "./intake-pages/FourthPage";
 import { FifthPage } from "./intake-pages/FifthPage";
 import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
+import { SuccessPage } from "./intermediate-pages/SuccessPage";
+import { CheckoutPage } from "./intake-pages/CheckoutPage";
+import { BrowserRouter as Router, Route, Routes } from "react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchAddonOptions, fetchLocationTimes, fetchSurveyOptions, fetchTotals } from "../Fetch";
 
 export const Survey = () => {
-    const [currentPage, setCurrentPage] = useState(2);
-    const [isLoading, setIsLoading] = useState(false);
+    const [currentPage, setCurrentPage] = useState(0);
+    const [clientSecret, setClientSecret] = useState('');
+
+    const [location, setLocation] = useState('');
+    const [service, setService] = useState('');
+    const [addons, setAddons] = useState<string[]>([]);
+
     const [hasError, setError] = useState(false);
+    const [manualIsLoading, setManualIsLoading] = useState(false);
+
+    const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+    const appearance = { theme: 'stripe' } as const;
+    const loader = 'auto';
     
     type FormInformation = {
         location: string;
@@ -28,8 +45,6 @@ export const Survey = () => {
         licensePlateNumber: string;
         service: string;
         addons: string[];
-        totalPrice: number,
-        totalDuration: number,
     };
 
     const formInformation = useRef<FormInformation>( {
@@ -50,69 +65,80 @@ export const Survey = () => {
 
         service: "",
         addons: [""],
-
-        totalPrice: Math.max(),
-        totalDuration: Math.max(),
     });
     
     type SurveyOptions = {
         locations: string[],
         services: string[],
-        possibleAddons: string[],
-        addons: string[],
     }
 
     const surveyOptions = useRef<SurveyOptions>({
         locations: [""],
         services: [""],
-        possibleAddons: [""],
-        addons: [""],
     })
 
-    useEffect(() => {
-        const fetchOptions = async () => {
-            try {
-                setIsLoading(true);
-                const optionReponse = await axios.get("http://localhost:3000/survey/options");
-                surveyOptions.current = optionReponse.data;
-            } catch(error) {
-                setError(true);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchOptions();        
-    }, [])
-
-    const fetchAddonOptions = async (serviceType: string) => {
-        try {
-            const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${serviceType}`);
-            surveyOptions.current.possibleAddons = addonOptionResponse.data;
-            return addonOptionResponse.data
-        } catch(error) {
-            setError(true);
-            return [];
-        }
+    type TotalCost = {
+        totalPrice: number,
+        totalDuration: number
     }
 
+    const totalCost = useRef<TotalCost>({
+        totalPrice: 0,
+        totalDuration: 0,
+    })
+
+    const queryClient = useQueryClient();
+
+    const surveyOptionsQuery = useQuery({
+        queryKey : ['surveyOptions'],
+        queryFn: fetchSurveyOptions,
+    }); surveyOptions.current = surveyOptionsQuery.data;
+
+    const locationTimesQuery = useQuery({
+        queryKey: ['location', location],
+        queryFn: () => fetchLocationTimes(location),
+        enabled: location != '',
+        staleTime: 5*60*1000,
+    }); const locationTimeFrame = locationTimesQuery.data ?? {timeStart: '', timeEnd: ''};
+    if(locationTimeFrame.timeStart === '') {
+        formInformation.current.arriveTime = '';
+        formInformation.current.leaveTime = '';
+    }
+    
+    const addonOptionsQuery = useQuery({
+        queryKey: ['service', service],
+        queryFn: () => fetchAddonOptions(service),
+        enabled: service != '',
+        staleTime: 5*60*1000,
+    }); const addonOptions = addonOptionsQuery.data ?? { undefined: undefined };
+
     const calculateTotals = async () => {
-        try {
-            setIsLoading(true);
-            const addonOptions = formInformation.current.addons
-                .map(addon => `addons=${encodeURIComponent(addon)}`)
-                .join('&');
-            const costResponse = await axios(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&${addonOptions}`)
-            formInformation.current = {
-                ...formInformation.current,
-                ...costResponse.data,
-            };
-            console.log(`http://localhost:3000/survey/calculate-costs?service=${formInformation.current.service}&size=${formInformation.current.carType}&addons=${addonOptions}`)
-            console.log(costResponse.data)
-        } catch(error) {
-            setError(true);
-        } finally {
-            setIsLoading(false);
+        setManualIsLoading(true);
+        const data = await queryClient.fetchQuery({
+            queryKey: ['totals', service, addons, formInformation.current.carType],
+            queryFn: () => fetchTotals(service, addons, formInformation.current.carType),
+            staleTime: 5*60*1000,
+        });
+        totalCost.current = {
+            ...totalCost.current, 
+            ...data,
         }
+        setManualIsLoading(false);
+    }   
+
+    const handleLocationChange = (newLocation: string) => {
+        setLocation(newLocation);
+        handleChange({ location: newLocation });
+    }
+
+    const handleServiceChange = (newService: string) => {
+        setService(newService);
+        handleChange({ service: newService });
+    }
+
+    const handleAddonChange = (newAddons : string[]) => {
+        setAddons(newAddons);
+        handleChange({ addons: newAddons });
     }
     
     const handleChange = (data: Partial<FormInformation>) => {
@@ -120,26 +146,43 @@ export const Survey = () => {
             ...formInformation.current,
             ...data,
         };
-        console.log(formInformation);
-    }
+    };
 
     const handleBack = () => {
         if(currentPage > 0)
             setCurrentPage(currentPage-1);
-    }
+    };
 
     const handleNext = () => {
         if(currentPage < pages.length)
             setCurrentPage(currentPage+1);
-    }
+    };
 
-    const handleSubmit = () => {
-        console.log(formInformation);
+    const handleSubmit = async () => {
+        const res = await axios.post(`http://localhost:3000/survey/booking`, formInformation.current)
+        setClientSecret(res.data.clientSecret);
+    };
+
+    /* just a simple little setup right now, fix it later:
+    */
+    
+    if(clientSecret) {
+        return (
+            <Elements 
+                stripe={stripePromise}
+                options={{clientSecret, appearance, loader}} 
+                >
+                <CheckoutPage price={totalCost.current.totalPrice} />
+            </Elements>
+        )
     }
+    
+    const isLoading = surveyOptionsQuery.isLoading || locationTimesQuery.isLoading || manualIsLoading;
 
     const pages = [
         <FirstPage 
-        handleChange={handleChange} handleNext={handleNext} surveyOptions={surveyOptions.current}
+        handleChange={handleChange} handleNext={handleNext} handleLocationChange={handleLocationChange}
+        surveyOptions={surveyOptions.current} timeFrame={locationTimeFrame}
         defaultValues={{ 
             location: formInformation.current.location, 
             arriveTime: formInformation.current.arriveTime, 
@@ -160,13 +203,15 @@ export const Survey = () => {
             carYear: formInformation.current.carYear,
             licensePlateNumber: formInformation.current.licensePlateNumber,
         }}/>,
-        <FourthPage handleChange={handleChange} getAppropriateAddons={fetchAddonOptions} calculateTotals={calculateTotals} handleBack={handleBack} handleNext={handleNext} surveyOptions={surveyOptions.current}
+        <FourthPage handleChange={handleChange} handleServiceChange={handleServiceChange} handleAddonChange={handleAddonChange}
+        calculateTotals={calculateTotals} handleBack={handleBack} handleNext={handleNext} 
+        surveyOptions={surveyOptions.current} addonOptions={addonOptions}
         defaultValues={{
             service: formInformation.current.service,
             addons: formInformation.current.addons,
         }} 
         />,
-        <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={formInformation.current.totalPrice} duration={formInformation.current.totalDuration}/>
+        <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={totalCost.current.totalPrice} duration={totalCost.current.totalDuration}/>
     ];
 
     if(hasError) {
@@ -176,8 +221,12 @@ export const Survey = () => {
     }
     
     return (
-        <div>
-            {isLoading?<LoadingPage/>:pages[currentPage]}
-        </div>
+        <Router>
+            <Routes>
+                <Route path="/" element={ <div> {isLoading ? <LoadingPage /> : pages[currentPage] } </div>} />
+                <Route path="/success" element={ <SuccessPage />} />
+            </Routes>
+        </Router>
     );
+    
 };

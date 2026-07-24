@@ -21,7 +21,7 @@ export const FifthPage = (props: any) => {
 
             <div className='grid grid-cols-2 gap-4 pt-2'>
                 <button type='button' onClick={props.handleBack} className={buttonStyle}>Last Page</button>
-                <input type="submit" value="Submit Booking" className={buttonStyle} />
+                <input type="submit" value="Submit Booking" onClick={() => props.handleSubmit()} className={buttonStyle} />
             </div>
         </div>
     );
