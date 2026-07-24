@@ -45,9 +45,9 @@ export const ThirdPage = (props : ThirdPageProps) => {
                     <label htmlFor="car-type">Car Type:</label>
                     <select id="car-type" defaultValue="" className={inputStyle} {...register("carType")}>
                         <option value="">SELECT ONE</option>
-                        <option value="standard">standard</option>
-                        <option value="midSize">mid-size</option>
-                        <option value="large">large</option>
+                        <option value="standard">Standard</option>
+                        <option value="midSize">Mid-Size</option>
+                        <option value="large">Large</option>
                     </select>
                     { errors.carType && <div className={errorStyle}>{errors.carType.message}</div> }
                 </div>

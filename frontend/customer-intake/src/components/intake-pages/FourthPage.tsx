@@ -2,6 +2,7 @@ import { useForm, type SubmitHandler } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { formTitleStyle, formDescriptionStyle, errorStyle, buttonStyle, formBoxStyle, optionStyle } from '../style';
+import { useEffect } from 'react';
 
 const schema = z.object({
     service: z.string({message: "Select a valid service"}).min(1, {message: "Select a valid service"}),
@@ -21,6 +22,7 @@ type FourthFormProps = {
     handleBack: () => void;
     calculateTotals: () => void;
     handleServiceChange: (serviceName : string) => void;
+    handleAddonChange: (newAddons : string[]) => void;
     defaultValues: Partial<FourthPageFields>;
     surveyOptions: SurveyOptions;
     addonOptions: Array<string>;
@@ -29,10 +31,16 @@ type FourthFormProps = {
 export const FourthPage = (props : FourthFormProps) => {
     const addonOptions = props.addonOptions;
 
-    const { register, handleSubmit, resetField, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
+    const { register, handleSubmit, resetField, watch, formState: {errors} } = useForm<FourthPageFields>({ defaultValues: {
         service: props.defaultValues.service,
         addons: props.defaultValues.addons,
     }, resolver: zodResolver(schema)});
+
+    const checkedAddons = watch('addons');
+
+    useEffect(() => {
+        props.handleAddonChange(checkedAddons ?? []);
+    }, [checkedAddons]);
 
     const onSubmit: SubmitHandler<FourthPageFields> = (data) => {
         props.handleChange(data);
@@ -56,7 +64,6 @@ export const FourthPage = (props : FourthFormProps) => {
                                 <input type='radio' value={serviceOption} {...register("service", {
                                     onChange: async (e) => {
                                         props.handleServiceChange(e.target.value);
-                                        
                                         resetField('addons', { defaultValue: [] });
                                     }
                                 })}/>
@@ -74,7 +81,7 @@ export const FourthPage = (props : FourthFormProps) => {
                         { addonOptions?.map(addonOption => {
                             return (
                             <label className={`${optionStyle} flex items-center gap-2 py-1`}>
-                                <input type='checkbox' {...register("addons")} value={addonOption} defaultChecked={false}/>
+                                <input type='checkbox' {...register("addons") } value={addonOption} defaultChecked={false}/>
                                 {addonOption}
                             </label> )
                         })}

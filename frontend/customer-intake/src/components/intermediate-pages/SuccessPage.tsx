@@ -11,7 +11,7 @@ export const SuccessPage = () => {
     return (
         <div className={formBoxStyle}>
             <div className="flex justify-center">
-                <img src={"check-mark-icon.png"} width={100} />
+                <img src={"check-mark.png"} width={100} />
             </div>
             <div className='flex flex-col gap-1'>
                 <h1 className={formTitleStyle}>Payment Successful</h1>

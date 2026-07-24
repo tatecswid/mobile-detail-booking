@@ -46,15 +46,12 @@ export const FirstPage = (props : FirstPageProps) => {
     const earliestTime = props.timeFrame.timeStart ? props.timeFrame.timeStart.slice(0, 5) : '';
     const latestTime = props.timeFrame.timeEnd ? props.timeFrame.timeEnd.slice(0, 5) : '';
 
-    console.log(earliestTime);
-    //console.log(latestTime);
-
     const schema = useMemo(
         () => createSchema(earliestTime, latestTime),
         [earliestTime, latestTime]
     );
 
-    const { register, resetField, clearErrors, watch, handleSubmit, formState: {errors} } = useForm<FirstPageFields>({ defaultValues: { 
+    const { register, resetField, clearErrors, handleSubmit, formState: {errors} } = useForm<FirstPageFields>({ defaultValues: { 
         location: props.defaultValues.location, 
         arriveTime: props.defaultValues.arriveTime, 
         leaveTime: props.defaultValues.leaveTime 
@@ -73,9 +70,6 @@ export const FirstPage = (props : FirstPageProps) => {
     
     useEffect(() => {
         if(location === "") return;
-
-        console.log(watch());
-        
 
         const fetchTimeInformation = async () => {
             props.handleLocationChange(location);

@@ -9,7 +9,7 @@ function App() {
     <div>
       <QueryClientProvider client={queryClient}>
         <Survey />
-        {//<ReactQueryDevtools initialIsOpen={true} />
+        { //<ReactQueryDevtools initialIsOpen={true} />
         }
       </QueryClientProvider>
       
