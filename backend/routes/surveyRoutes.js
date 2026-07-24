@@ -96,7 +96,6 @@ router.get('/cost', async (req, res) => {
         if(!service || !size) { return res.status(400).json({error : 'service and size are required'}); }
 
         const { totalPrice, totalDuration } = await calculateCost(service, size, addonList);
-        console.log("price: " + totalPrice, " | duration: " + totalDuration);
         res.status(200).json({totalPrice, totalDuration});
     } catch(err) {
         res.json({error: err.message});
@@ -182,7 +181,6 @@ router.post('/booking', async (req, res) => {
     }
     catch(err) {
         res.status(500).json({error: err.message});
-        console.log(err.message);
     }
 })
 
@@ -454,8 +452,6 @@ const calculateCost = async (service, size, addons) => {
             .in('addon_name', addons)
     );
 
-    console.log(selectedAddonsCost);
-
     let totalPrice = 0;
     let totalDuration = 0;
 
@@ -474,7 +470,6 @@ const calculateCost = async (service, size, addons) => {
             .eq('service_pricing.car_size', size)
             .single()
     );
-    console.log(selectedServiceCost);
     const serviceRequest = selectedServiceCost.service_pricing[0];
 
     if(!selectedServiceCost || !serviceRequest) {

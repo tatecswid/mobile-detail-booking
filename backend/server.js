@@ -8,7 +8,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const app = express();
 
-let endpointSecret = "whsec_5a5620d3faffab914df96141ca6133f30dce3ada4c1f43cbba4fdd930ab66166";
+let endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req, res) => {
     let event;
@@ -27,7 +27,6 @@ app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req,
             const addons = JSON.parse(paymentIntent.metadata.addons);
             const bookingFields = {stripe_payment_id: paymentIntent.id, ...paymentIntent.metadata, addons};
 
-            console.log(bookingFields);
             try {
                 saveBookingIfNeeded(bookingFields);
             } catch(err) {
@@ -43,13 +42,18 @@ app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req,
 })
 
 app.use(express.json());
-app.use(cors());
+app.use(
+    cors({
+        origin: process.env.FRONTEND_URL,
+        credentials: true,
+    })
+);
 
 //app.use('/admin', adminRoutes);
 app.use('/survey', customerRoutes);
 
-app.listen(3000, () => {
-    console.log("Server running on port 3000");
+app.listen(process.env.PORT, () => {
+    console.log(`Server running on port ${process.env.PORT}`);
 })
 
 app.get("/", (req, res) => {
