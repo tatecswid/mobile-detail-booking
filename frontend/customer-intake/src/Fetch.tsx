@@ -6,8 +6,10 @@ export const fetchLocationTimes = async (location: string) => {
 };
 
 export const fetchAddonOptions = async (serviceType: string) => {
-    const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${serviceType}`);
+    const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${encodeURI(serviceType)}`);
+    console.log(addonOptionResponse.data)
     return addonOptionResponse.data;
+    
 };
 
 export const fetchSurveyOptions = async () => {  
@@ -19,6 +21,6 @@ export const fetchTotals = async (serviceType: string, addonsList: string[], car
     const addonOptions = addonsList
         .map(addon => `addons=${encodeURIComponent(addon)}`)
         .join('&');
-    const costResponse = await axios(`http://localhost:3000/survey/cost?service=${serviceType}&size=${carType}&${addonOptions}`)
+    const costResponse = await axios(`http://localhost:3000/survey/cost?service=${encodeURI(serviceType)}&size=${carType}&${addonOptions}`)
     return costResponse.data;
 };

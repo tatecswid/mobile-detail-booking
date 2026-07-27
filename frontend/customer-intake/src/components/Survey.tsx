@@ -177,7 +177,7 @@ export const Survey = () => {
         )
     }
     
-    const isLoading = surveyOptionsQuery.isLoading || locationTimesQuery.isLoading || manualIsLoading;
+    const isLoading = surveyOptionsQuery.isLoading || /*locationTimesQuery.isLoading ||*/  manualIsLoading;
 
     const pages = [
         <FirstPage 

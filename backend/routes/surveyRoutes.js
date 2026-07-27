@@ -43,36 +43,42 @@ router.get('/appropriate-addons', async (req, res) => {
     try {
         const { serviceType } = req.query;
 
-        const selectedId = await query(
+        console.log(serviceType);
+
+        let availibleAddons;
+
+        if(serviceType == 'Complete Refresh') {
+            availibleAddons = await query(
+                supabase
+                    .from('addon')
+                    .select('*')
+            );
+        } else {
+            const selectedId = await query(
             supabase
                 .from('service')
                 .select('service_id')
                 .eq('service_name', serviceType)
                 .single()
-        );
-        const serviceId = selectedId.service_id;
+            );
+            const serviceId = selectedId.service_id;
 
-        const allowedServices = {
-            1 : [1],
-            2 : [2],
-            3 : [1,2],
-        };
+            availibleAddons = await query(
+                supabase
+                    .from('addon')
+                    .select('addon_name')
+                    .eq('service_req', serviceId)
+            );
+        }
 
-        const availibleAddons = await query(
-            supabase
-                .from('addon')
-                .select('addon_name')
-                .in('service_req', allowedServices[serviceId])
-        );
-
-        if(!selectedId || !availibleAddons) {
+        if(!availibleAddons) {
             return res.status(500).json({error : 'could not fetch valid options, try again later'});
         }
 
         res.status(200).json(availibleAddons.map(({ addon_name }) => addon_name));
 
     } catch(err) {
-        res.json({error: err.message});
+        res.status(500).json({error: err.message});
     }
 })
 
@@ -300,20 +306,28 @@ const checkLocationValidity = async (locationName) => {
     if(!locationRow) throw new Error(`Location "${locationName}" does not exist.`);
     const locationID = locationRow.location_id;
 
+    const nowUtc = new Date();
+    const currentDateTime = nowUtc.toLocaleString('sv-SE', { timeZone: "America/Chicago" }).replace(' ', 'T');
+
     const detailDayRow = await query(
         supabase
             .from('detail_day')
             .select('detail_day_id, time_start, time_end')
             .eq('location_id', locationID)
-            .gt('date', new Date().toISOString())
+            .gt('date', currentDateTime)
             .order('date', { ascending: true })
             .limit(1)
             .maybeSingle()
     )
     if(!detailDayRow) throw new Error("Next detail date not availible for location yet.");
 
-    return { detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start, timeEnd: detailDayRow.time_end };
+    return { detailDayID : detailDayRow.detail_day_id, timeStart: detailDayRow.time_start, timeEnd: detailDayRow.time_end, date: detailDayRow.date };
 }
+
+router.get('/location-request', async (req,res) => {
+    const data = await checkLocationValidity('Miami');
+    res.status(200).json(data);
+});
 
 const saveBookingIfNeeded = async (bookingFields) => {
     const existing = await query(
