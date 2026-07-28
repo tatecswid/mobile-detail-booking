@@ -51,7 +51,7 @@ router.get('/appropriate-addons', async (req, res) => {
             availibleAddons = await query(
                 supabase
                     .from('addon')
-                    .select('*')
+                    .select('*addon_name')
             );
         } else {
             const selectedId = await query(
@@ -111,7 +111,7 @@ router.get('/cost', async (req, res) => {
 
 router.post('/booking', async (req, res) => {
     try {
-        const { 
+        const {
             location,
             arriveTime,
             leaveTime,
@@ -174,7 +174,7 @@ router.post('/booking', async (req, res) => {
                 })
             );                
 
-            res.status(200).json({
+            res.status(201).json({
                 clientSecret: paymentIntent.client_secret,
             })
         } 

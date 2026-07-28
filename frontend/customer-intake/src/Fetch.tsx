@@ -7,7 +7,6 @@ export const fetchLocationTimes = async (location: string) => {
 
 export const fetchAddonOptions = async (serviceType: string) => {
     const addonOptionResponse = await axios.get(`http://localhost:3000/survey/appropriate-addons?serviceType=${encodeURI(serviceType)}`);
-    console.log(addonOptionResponse.data)
     return addonOptionResponse.data;
     
 };

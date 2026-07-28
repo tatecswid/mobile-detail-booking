@@ -30,13 +30,13 @@ app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req,
             try {
                 saveBookingIfNeeded(bookingFields);
             } catch(err) {
-                return res.status(500).json({ error: err.message });
+                return res.status(400).json({ error: err.message });
             }
         }
 
         res.sendStatus(200);
         } catch(err) {
-            res.status(500).json(err.message);
+            res.status(500).json({ error: err.message });
         }
     }
 })
@@ -54,8 +54,4 @@ app.use('/survey', customerRoutes);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server running on port ${process.env.PORT}`);
-})
-
-app.get("/", (req, res) => {
-    res.json({greeting : "hello world"});
 })
