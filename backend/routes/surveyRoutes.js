@@ -111,6 +111,13 @@ router.get('/cost', async (req, res) => {
 
 router.post('/booking', async (req, res) => {
     try {
+        // confirm that the turnstile token is valid:
+        const turnstileToken = req.headers['turnstile-token'];
+        const turnstileResult = await validateTurnstile(turnstileToken);
+        if(!turnstileResult.success) {
+            return res.status(403).json({error: 'booking request not authorized'});
+        }
+
         const {
             location,
             arriveTime,
@@ -139,7 +146,7 @@ router.post('/booking', async (req, res) => {
 
         if(canFit) {
             const paymentIntent = await stripe.paymentIntents.create({
-                amount: Math.round(totalPrice) * 100,
+                amount: Math.round(totalPrice * 100),
                 currency: "usd",
                 metadata: {
                     first_name: firstName,
@@ -495,6 +502,39 @@ const calculateCost = async (service, size, addons) => {
 
     return { totalPrice, totalDuration };
 }
+
+router.get('/t', async (req, res) => {
+    const token = req.headers['turnstile-token'];
+
+    const isValidated = await validateTurnstile(token);
+    res.status(200).json(isValidated);
+})
+
+const validateTurnstile = async (token) => {
+    try {
+		const response = await fetch(
+			"https://challenges.cloudflare.com/turnstile/v0/siteverify",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					secret: process.env.TURNSTILE_SECRET_KEY,
+					response: token,
+				}),
+			},
+		);
+
+        if(!response.ok) throw new Error(`Cloudflare returned HTTP ${response.status}`);
+        
+		const result = await response.json();
+		return result;
+	} catch (error) {
+		return { success: false, "error-codes": ["internal-error"] };
+	}
+}
+
 
 const query = async ( promise ) => {
     const { data, error } = await promise;

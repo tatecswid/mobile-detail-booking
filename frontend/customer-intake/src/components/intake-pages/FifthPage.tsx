@@ -1,6 +1,10 @@
 import { buttonStyle, formBoxStyle, formDescriptionStyle, formTitleStyle } from "../style";
+import { Turnstile } from "react-turnstile";
+import { useState } from "react";
 
 export const FifthPage = (props: any) => {
+    const [turnstileToken, setTurnstileToken] = useState<String>("");
+
     return (
         <div className={formBoxStyle}>
             <div className='flex flex-col gap-1'>
@@ -18,10 +22,17 @@ export const FifthPage = (props: any) => {
                     <div className='text-xl font-semibold'>{props.duration} minutes</div>
                 </div>
             </div>
-
+            <div className="flex justify-center">
+                <Turnstile 
+                    sitekey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                    onVerify={(token) => {
+                        setTurnstileToken(token);
+                    }}
+                />
+            </div>
             <div className='grid grid-cols-2 gap-4 pt-2'>
                 <button type='button' onClick={props.handleBack} className={buttonStyle}>Last Page</button>
-                <input type="submit" value="Submit Booking" onClick={() => props.handleSubmit()} className={buttonStyle} />
+                {turnstileToken&&<input type="submit" value="Submit Booking" onClick={() => props.handleSubmit(turnstileToken)} className={buttonStyle} />}
             </div>
         </div>
     );

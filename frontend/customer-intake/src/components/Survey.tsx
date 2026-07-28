@@ -158,9 +158,21 @@ export const Survey = () => {
             setCurrentPage(currentPage+1);
     };
 
-    const handleSubmit = async () => {
-        const res = await axios.post(`http://localhost:3000/survey/booking`, formInformation.current)
-        setClientSecret(res.data.clientSecret);
+    const handleSubmit = async (turnstileToken : string) => {
+        try {
+            setManualIsLoading(true);
+            const res = await axios.post(`http://localhost:3000/survey/booking`, formInformation.current, {
+                headers: {
+                    "turnstile-token": turnstileToken,
+                }
+            })
+
+            setClientSecret(res.data.clientSecret);
+        } catch(error) {
+            setError(true);
+        } finally {
+            setManualIsLoading(false);
+        }
     };
 
     /* just a simple little setup right now, fix it later:

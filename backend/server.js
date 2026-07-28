@@ -2,13 +2,17 @@ require('dotenv').config(({path: './config/.env' }))
 
 const cors = require('cors');
 const express = require('express');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+
+
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
+let endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
 //const adminRoutes = require('./routes/adminRoutes');
 const { router: customerRoutes, saveBookingIfNeeded } = require('./routes/surveyRoutes');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY)
 
 const app = express();
-
-let endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req, res) => {
     let event;
@@ -29,25 +33,38 @@ app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req,
 
             try {
                 saveBookingIfNeeded(bookingFields);
+                return res.sendStatus(200);
             } catch(err) {
                 return res.status(400).json({ error: err.message });
             }
         }
-
-        res.sendStatus(200);
+        else {
+            return res.status(500).json({ error: "PAYMENT FAILED" });
+        }
         } catch(err) {
             res.status(500).json({ error: err.message });
         }
     }
 })
 
-app.use(express.json());
+app.use(
+    rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 100,
+        message: 'Too many requests from this IP, please try again later'
+    })
+);
 app.use(
     cors({
         origin: process.env.FRONTEND_URL,
         credentials: true,
     })
 );
+app.use(helmet());
+
+
+app.use(express.json());
+
 
 //app.use('/admin', adminRoutes);
 app.use('/survey', customerRoutes);
