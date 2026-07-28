@@ -1,3 +1,3 @@
-export const ErrorPage = () => {
-    return <div> Error </div>
+export const ErrorPage = ( props : {message : string }) => {
+    return <div> {props.message} </div>
 };
