@@ -20,6 +20,11 @@ export const fetchTotals = async (serviceType: string, addonsList: string[], car
     const addonOptions = addonsList
         .map(addon => `addons=${encodeURIComponent(addon)}`)
         .join('&');
-    const costResponse = await axios(`http://localhost:3000/survey/cost?service=${encodeURI(serviceType)}&size=${carType}&${addonOptions}`)
+    const costResponse = await axios.get(`http://localhost:3000/survey/cost?service=${encodeURI(serviceType)}&size=${carType}&${addonOptions}`)
     return costResponse.data;
 };
+
+export const confirmPayment = async ( paymentID : string ) => {
+    const confirmationResponse = await axios.get(`http://localhost:3000/survey/confirm-booking?paymentID=${paymentID}`);
+    return confirmationResponse.data;
+}

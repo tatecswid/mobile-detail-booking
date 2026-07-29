@@ -17,11 +17,11 @@ const app = express();
 app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req, res) => {
     let event;
 
-    if(endpointSecret) {
-        try {
+    if(!endpointSecret) { return res.status(500).json({error: "PAYMENT FAILED"}) }
+    try {
         const sig = req.headers['stripe-signature'];
         event = stripe.webhooks.constructEvent(
-            req.body,
+        req.body,
             sig,
             endpointSecret,
         );
@@ -32,20 +32,25 @@ app.post('/survey/webhook', express.raw({type: 'application/json'}), async (req,
             const bookingFields = {stripe_payment_id: paymentIntent.id, ...paymentIntent.metadata, addons};
 
             try {
-                saveBookingIfNeeded(bookingFields);
-                return res.sendStatus(200);
+                const confirmation = await saveBookingIfNeeded(bookingFields);
+
+                if(confirmation.status === "session expired") {
+                    const refund = await stripe.refunds.create({
+                        payment_intent: paymentIntent.id,
+                    });
+                    return res.status(401).json({ error: 'session expired, refund has been issued' })
+                }
             } catch(err) {
                 return res.status(400).json({ error: err.message });
             }
         }
-        else {
-            return res.status(500).json({ error: "PAYMENT FAILED" });
-        }
         } catch(err) {
             res.status(500).json({ error: err.message });
         }
+
+        return res.sendStatus(200);
     }
-})
+);
 
 app.use(
     rateLimit({

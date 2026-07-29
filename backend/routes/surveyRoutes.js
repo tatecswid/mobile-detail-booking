@@ -197,29 +197,30 @@ router.post('/booking', async (req, res) => {
     }
 })
 
-router.post('/booking-confirmation', async (req, res) => {
-    // insert stripe payment validation here
+router.get('/confirm-booking', async (req, res) => {
     try {
-        const { stripePaymentId } = req.body;
-        
-            const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentId);
+        const { paymentID } = req.query;
+        if(!paymentID) {
+            return res.status(400).json({ error: "payment id required to confirm a booking" });
+        }
 
-            if(paymentIntent.status !== 'succeeded') { return res.status(400).json({ error: "Stripe payment did not go through..." }) }
-            
-            const confirmation = await saveBookingIfNeeded(bookingFields)
+        const bookingRowResponse = await query(
+            supabase
+                .from('booking_info')
+                .select('*')
+                .eq('stripe_payment_intent_id', paymentID)
+                .maybeSingle()
+        );
 
-            if(confirmation.status === "session expired") {
-                const refund = await stripe.refunds.create({
-                    payment_intent: paymentIntent.id,
-                });
+        if(bookingRowResponse) {
+            return res.status(200).json({status : 'success', message: 'booking has been fully confirmed'});
+        } else {
+            return res.status(404).json({status : 'failure', message: 'failed to confirm booking'})
+        }
 
-                return res.status(409).json({error: "session expired, refund has been issued."})
-            }
-
-            res.status(200).json({message: "booking has been confirmed"})
     } catch(err) {
-        res.status(500).json({error: err.message});
-    }    
+        return res.status(500).json({error: err.message});
+    }
 })
 
 // algorithm that checks if a request could be fit into the schedule.
@@ -315,11 +316,11 @@ const checkLocationValidity = async (locationName) => {
 
     const nowUtc = new Date();
     const currentDateTime = nowUtc.toLocaleString('sv-SE', { timeZone: "America/Chicago" }).replace(' ', 'T');
-
+    
     const detailDayRow = await query(
         supabase
             .from('detail_day')
-            .select('detail_day_id, time_start, time_end')
+            .select('detail_day_id, time_start, time_end, date')
             .eq('location_id', locationID)
             .gt('date', currentDateTime)
             .order('date', { ascending: true })
@@ -372,6 +373,14 @@ const saveBookingIfNeeded = async (bookingFields) => {
             .single()
     );
 
+    // delete from pending booking
+    await query(
+        supabase
+            .from('pending_booking')
+            .delete()
+            .eq('stripe_payment_intent_id', bookingFields.stripe_payment_id)
+    );
+
     // add addons to the booking
     const addonList = [].concat(bookingFields.addons || []);
 
@@ -393,15 +402,7 @@ const saveBookingIfNeeded = async (bookingFields) => {
                 .from('booking_addon')
                 .insert(bookingAddons)
         );
-    }   
-
-    // delete from pending booking
-    await query(
-        supabase
-            .from('pending_booking')
-            .delete()
-            .eq('stripe_payment_intent_id', bookingFields.stripe_payment_id)
-    );
+    }
 
     return { status: 'booked' };
 }

@@ -1,7 +1,7 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import axios, { AxiosError } from "axios";
+import axios from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
@@ -9,12 +9,18 @@ import { FourthPage } from "./intake-pages/FourthPage";
 import { FifthPage } from "./intake-pages/FifthPage";
 import { LoadingPage } from "./intermediate-pages/LoadingPage";
 import { ErrorPage } from "./intermediate-pages/ErrorPage";
-import { SuccessPage } from "./intermediate-pages/SuccessPage";
 import { CheckoutPage } from "./intake-pages/CheckoutPage";
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAddonOptions, fetchLocationTimes, fetchSurveyOptions, fetchTotals } from "../Fetch";
 import { WaitlistPage } from "./intake-pages/WaitlistPage";
+import { AfterPaymentPage } from "./intermediate-pages/AfterPaymentPage";
+
+/* TODO: 
+    - ADD ERROR HANDLING for when the webhook isn't actually successful
+    - FINISH the scheduling conflict waitlist addition
+*/
+
 
 export const Survey = () => {
     const [currentPage, setCurrentPage] = useState(0);
@@ -25,7 +31,7 @@ export const Survey = () => {
     const [addons, setAddons] = useState<string[]>([]);
 
     const [hasError, setError] = useState(false);
-    const [errorMessage, setErrorMessage] = useState("")
+    const [errorMessage, setErrorMessage] = useState('')
     const [manualIsLoading, setManualIsLoading] = useState(false);
 
     const [scheduleConflict, setScheduleConflict] = useState(false);
@@ -263,7 +269,7 @@ export const Survey = () => {
         <Router>
             <Routes>
                 <Route path="/" element={ <div> {isLoading ? <LoadingPage /> : pages[currentPage] } </div>} />
-                <Route path="/success" element={ <SuccessPage />} />
+                <Route path="/after-payment" element={ <AfterPaymentPage />} />
             </Routes>
         </Router>
     );

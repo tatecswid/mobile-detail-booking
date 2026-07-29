@@ -17,7 +17,7 @@ export const CheckoutPage = ({ price } : CheckoutPageProps) => {
         await stripe.confirmPayment({
             elements,
             confirmParams: {
-                return_url: "http://localhost:5173/success"
+                return_url: `${window.location.origin}/after-payment`
             }
         });
     }

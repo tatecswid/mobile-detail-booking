@@ -1,4 +1,4 @@
-import { formTitleStyle, formDescriptionStyle, errorStyle, inputStyle, buttonStyle, formBoxStyle } from '../style';
+import { formTitleStyle, buttonStyle, formBoxStyle } from '../style';
 
 export const WaitlistPage = (props : { handleWaitlistAddition: () => void }) => {
     return (
