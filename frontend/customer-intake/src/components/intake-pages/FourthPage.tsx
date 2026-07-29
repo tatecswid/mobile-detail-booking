@@ -61,7 +61,7 @@ export const FourthPage = (props : FourthFormProps) => {
                         { props.surveyOptions.services.map(serviceOption => {
                             return (
                             <label key={serviceOption} className={`${optionStyle} flex items-center gap-2`}>
-                                <input type='radio' value={serviceOption} {...register("service", {
+                                <input type='radio' value={serviceOption} key={serviceOption} {...register("service", {
                                     onChange: async (e) => {
                                         props.handleServiceChange(e.target.value);
                                         resetField('addons', { defaultValue: [] });
@@ -81,7 +81,7 @@ export const FourthPage = (props : FourthFormProps) => {
                         { addonOptions?.map(addonOption => {
                             return (
                             <label className={`${optionStyle} flex items-center gap-2 py-1`}>
-                                <input type='checkbox' {...register("addons") } value={addonOption} defaultChecked={false}/>
+                                <input type='checkbox' key={addonOption} {...register("addons") } value={addonOption} defaultChecked={false}/>
                                 {addonOption}
                             </label> )
                         })}

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { FirstPage } from "./intake-pages/FirstPage";
 import { SecondPage } from "./intake-pages/SecondPage";
 import { ThirdPage } from "./intake-pages/ThirdPage";
@@ -14,6 +14,7 @@ import { CheckoutPage } from "./intake-pages/CheckoutPage";
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchAddonOptions, fetchLocationTimes, fetchSurveyOptions, fetchTotals } from "../Fetch";
+import { WaitlistPage } from "./intake-pages/WaitlistPage";
 
 export const Survey = () => {
     const [currentPage, setCurrentPage] = useState(0);
@@ -24,7 +25,10 @@ export const Survey = () => {
     const [addons, setAddons] = useState<string[]>([]);
 
     const [hasError, setError] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("")
     const [manualIsLoading, setManualIsLoading] = useState(false);
+
+    const [scheduleConflict, setScheduleConflict] = useState(false);
 
     const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
     const appearance = { theme: 'stripe' } as const;
@@ -89,10 +93,11 @@ export const Survey = () => {
 
     const queryClient = useQueryClient();
 
-    const surveyOptionsQuery = useQuery({
+    const surveyOptionsQuery = useQuery<SurveyOptions>({
         queryKey : ['surveyOptions'],
         queryFn: fetchSurveyOptions,
-    }); surveyOptions.current = surveyOptionsQuery.data;
+        retry: 1,
+    }); surveyOptions.current = surveyOptionsQuery.data ?? surveyOptions.current;
 
     const locationTimesQuery = useQuery({
         queryKey: ['location', location],
@@ -113,18 +118,29 @@ export const Survey = () => {
     }); const addonOptions = addonOptionsQuery.data ?? { undefined: undefined };
 
     const calculateTotals = async () => {
-        setManualIsLoading(true);
-        const data = await queryClient.fetchQuery({
-            queryKey: ['totals', service, addons, formInformation.current.carType],
-            queryFn: () => fetchTotals(service, addons, formInformation.current.carType),
-            staleTime: 5*60*1000,
-        });
-        totalCost.current = {
-            ...totalCost.current, 
-            ...data,
+        try {
+            setManualIsLoading(true);
+            const data = await queryClient.fetchQuery({
+                queryKey: ['totals', service, addons, formInformation.current.carType],
+                queryFn: () => fetchTotals(service, addons, formInformation.current.carType),
+                staleTime: 5*60*1000,
+            });
+            totalCost.current = {
+                ...totalCost.current, 
+                ...data,
         }
-        setManualIsLoading(false);
-    }   
+        } catch(error) {
+            setError(true);
+            setErrorMessage("Unable to calculate totals");
+        } finally {
+            setManualIsLoading(false);
+        }
+        
+    }
+
+    const addToWaitlist = async () => {
+        axios.get('')
+    }
 
     const handleLocationChange = (newLocation: string) => {
         setLocation(newLocation);
@@ -166,18 +182,19 @@ export const Survey = () => {
                     "turnstile-token": turnstileToken,
                 }
             })
-
             setClientSecret(res.data.clientSecret);
-        } catch(error) {
-            setError(true);
+        } catch(error: unknown) {
+            if(axios.isAxiosError(error) && error.response?.status === 403) {
+                setError(true);
+                setErrorMessage("Booking request not authorized");
+            } else if(axios.isAxiosError(error) && error.response?.status === 409) {
+                setScheduleConflict(true);
+            }
         } finally {
             setManualIsLoading(false);
         }
     };
 
-    /* just a simple little setup right now, fix it later:
-    */
-    
     if(clientSecret) {
         return (
             <Elements 
@@ -190,6 +207,10 @@ export const Survey = () => {
     }
     
     const isLoading = surveyOptionsQuery.isLoading || /*locationTimesQuery.isLoading ||*/  manualIsLoading;
+    const activeError = surveyOptionsQuery.isError && "Connection Failed" ||
+                        hasError && errorMessage ||
+                        addonOptionsQuery.isError && "Unable to find addons" ||
+                        locationTimesQuery.isError && "Unable to load location times";
 
     const pages = [
         <FirstPage 
@@ -226,10 +247,16 @@ export const Survey = () => {
         <FifthPage handleBack={handleBack} handleSubmit={handleSubmit} price={totalCost.current.totalPrice} duration={totalCost.current.totalDuration}/>
     ];
 
-    if(hasError) {
+    if(activeError) {        
         return (
-            <div><ErrorPage/></div>
-            )
+            <div><ErrorPage message={activeError}/></div>
+        )
+    }
+
+    if(scheduleConflict) {
+        return (
+            <WaitlistPage handleWaitlistAddition={addToWaitlist}/>
+        )
     }
     
     return (

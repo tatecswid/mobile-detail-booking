@@ -11,7 +11,7 @@ export const fetchAddonOptions = async (serviceType: string) => {
     
 };
 
-export const fetchSurveyOptions = async () => {  
+export const fetchSurveyOptions = async () => {
     const optionReponse = await axios.get("http://localhost:3000/survey/options");
     return optionReponse.data;
 };

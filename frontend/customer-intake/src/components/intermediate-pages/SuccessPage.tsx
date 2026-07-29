@@ -10,14 +10,16 @@ export const SuccessPage = () => {
 
     return (
         <div className={formBoxStyle}>
-            <div className="flex justify-center">
+            <div className="flex justify-center p-5">
                 <img src={"check-mark.png"} width={100} />
             </div>
             <div className='flex flex-col gap-1'>
                 <h1 className={formTitleStyle}>Payment Successful</h1>
                 <h2 className={formDescriptionStyle}>We look forward to detailing your car</h2>
             </div>
-            <button className={buttonStyle} onClick={handleClose}>Close this form</button>
+            <div className="grid pt-4">
+                <button className={buttonStyle} onClick={handleClose}>Close this form</button>
+            </div>
         </div>
     );
 }
